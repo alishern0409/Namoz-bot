@@ -605,6 +605,28 @@ async def surah_page(call: CallbackQuery):
 async def send_audio(call: CallbackQuery):
     _, reciter_name, surah_num = call.data.split(":")
     surah_num = int(surah_num)
+    
+    base_url = RECITERS[reciter_name]
+    audio_url = f"{base_url}{surah_num:03d}.mp3"
+    
+    await call.answer()
+    current_page = (surah_num - 1) // 10
+    
+    try:
+        # Faqat havolani beramiz. Server 256MB xotirani to'ldirmaydi
+        await call.message.answer_audio(
+            audio=audio_url, 
+            title=f"{surah_num}. {SURA_NAMES[surah_num-1]}", 
+            performer=reciter_name, 
+            caption=f"🎧 Qori: {reciter_name}\n📖 Sura: {surah_num}. {SURA_NAMES[surah_num-1]}",
+            reply_markup=surahs_menu(reciter_name, current_page)
+        )
+    except Exception as e:
+        print(f"AUDIO XATOSI: {e}")
+        await call.message.answer(f"❌ Audioni yuklab bo'lmadi.")
+async def send_audio(call: CallbackQuery):
+    _, reciter_name, surah_num = call.data.split(":")
+    surah_num = int(surah_num)
     audio_url = f"{RECITERS[reciter_name]}{surah_num:03d}.mp3"
     await call.answer()
     try:
