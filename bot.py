@@ -592,7 +592,7 @@ async def send_audio(call: CallbackQuery):
     surah_num = int(surah_num)
     
     reciter_slug = RECITERS[reciter_name]
-    audio_url = f"https://cdn.islamic.network/quran/audio-surah/128/{reciter_slug}/{surah_num}.mp3"
+    audio_url = f"https://cdn.islamic.network/quran/audio-surah/128/{reciter_slug}/{surah_num:03d}.mp3"
     
     await call.answer()
     current_page = (surah_num - 1) // 10
