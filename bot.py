@@ -4,15 +4,16 @@ import sqlite3
 import math
 import random
 import urllib.parse
+import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.types import (
     Message, ReplyKeyboardMarkup, KeyboardButton, 
-    ReplyKeyboardRemove, CallbackQuery, InlineKeyboardButton, BufferedInputFile,
+    ReplyKeyboardRemove, CallbackQuery, InlineKeyboardButton, 
     InlineQuery, InlineQueryResultArticle, InputTextMessageContent,
-    URLInputFile
+    FSInputFile
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -74,29 +75,8 @@ HADITHS = [
 TASBEH_COUNTS = {}
 TASBEH_DHIKRS = ["Subhanalloh", "Alhamdulilloh", "Allohu Akbar", "La ilaha illalloh", "Astag'firulloh", "La havla va la quvvata illa billah", "Subhanallohi va bihamdihi", "Subhanallohil 'Aziym", "La ilaha illallohu vahdahu la sharika lah", "Allohumma solli 'ala Muhammad", "Bismillah", "Hasbunallohu va ni'mal vakil", "La ilaha illa anta subhanaka inni kuntu minaz zolimin", "Ya Hayyu ya Qayyum birahmatika astag'is", "Rabbana atina fid dunya hasanatan va fil akhirati hasanatan va qina 'azaban nar", "Allohumma inni as'alukal jannata va a'uzu bika minan nar", "Robbi zidni 'ilma", "Robbi ighfir li va li validayya", "Allohumma ighfir li zanbi kullahu", "Subhanallohi va bihamdihi subhanallohil 'Aziym"]
 
-# --- QORILAR (Rasmiy islomiy CDN) ---
-RECITERS = {
-    "Mishary Alafasy": "ar.alafasy",
-    "Abdul Basit": "ar.abdulbasitmurattal",
-    "Saad Al-Ghamdi": "ar.saadalghamdi",
-    "Maher Al-Muaiqly": "ar.mahermuaiqly",
-    "Abu Bakr Al-Shatri": "ar.abubakralshatri",
-    "Yasser Al-Dosari": "ar.yasseraldosari",
-    "Nasser Al-Qatami": "ar.nasserqatami",
-    "Hani Ar-Rifai": "ar.hanirifai",
-    "Muhammad Al-Luhaidan": "ar.muhammadalluhaidan",
-    "Mahmoud Al-Hussary": "ar.mahmoudkhalilalhusary",
-    "Abdul Rahman Al-Sudais": "ar.abdurrahmaansudais",
-    "Saud Al-Shuraim": "ar.saoodshuraym",
-    "Ali Al-Hudhaify": "ar.alihudhaify",
-    "Ahmad Al-Ajmi": "ar.ahmadalajmi",
-    "Fares Abbad": "ar.faresabbad",
-    "Salah Bukhatir": "ar.salahbukhatir",
-    "Muhammad Al-Minshawi": "ar.muhammadsiddiqalminshawi",
-    "Mustafa Ismail": "ar.mustafaalismail",
-    "Mahmoud Al-Banna": "ar.mahmoudalibanna",
-    "Abdullah Al-Juhany": "ar.abdullahaljuhany"
-}
+# --- QORILAR (64 kbps, hajmi kichik va tez) ---
+RECITERS = {"Mishary Alafasy": "https://server8.mp3quran.net/afs/64/", "Abdul Basit": "https://server7.mp3quran.net/basit/64/", "Saad Al-Ghamdi": "https://server7.mp3quran.net/s_gmd/64/", "Maher Al-Muaiqly": "https://server12.mp3quran.net/maher/64/", "Abu Bakr Al-Shatri": "https://server11.mp3quran.net/shatri/64/", "Yasser Al-Dosari": "https://server11.mp3quran.net/yasser/64/", "Nasser Al-Qatami": "https://server8.mp3quran.net/qat/64/", "Hani Ar-Rifai": "https://server8.mp3quran.net/hani/64/", "Muhammad Al-Luhaidan": "https://server8.mp3quran.net/lhdan/64/", "Mahmoud Al-Hussary": "https://server13.mp3quran.net/husr/64/", "Abdul Rahman Al-Sudais": "https://server11.mp3quran.net/sds/64/", "Saud Al-Shuraim": "https://server7.mp3quran.net/shur/64/", "Ali Al-Hudhaify": "https://server8.mp3quran.net/hthfi/64/", "Ahmad Al-Ajmi": "https://server10.mp3quran.net/ajm/64/", "Fares Abbad": "https://server8.mp3quran.net/frs_a/64/", "Salah Bukhatir": "https://server8.mp3quran.net/bu_khtr/64/", "Muhammad Al-Minshawi": "https://server10.mp3quran.net/minsh/64/", "Mustafa Ismail": "https://server8.mp3quran.net/mustafa/64/", "Mahmoud Al-Banna": "https://server8.mp3quran.net/banna/64/", "Abdullah Al-Juhany": "https://server6.mp3quran.net/jhn/64/"}
 
 SURA_NAMES = ["Fotiha", "Baqara", "Oli Imron", "Niso", "Moida", "An'om", "A'rof", "Anfol", "Tavba", "Yunus", "Hud", "Yusuf", "Ra'd", "Ibrohim", "Hijr", "Nahl", "Isro", "Kahf", "Maryam", "Toha", "Anbiyo", "Haj", "Mu'minun", "Nur", "Furqon", "Shuaro", "Naml", "Qasas", "Ankabut", "Rum", "Luqmon", "Sajda", "Ahzob", "Saba", "Fatir", "Yosin", "Soffat", "Sod", "Zumar", "G'ofir", "Fussilat", "Sho'ro", "Zuhruf", "Duxon", "Josiya", "Ahqof", "Muhammad", "Fath", "Hujurot", "Qof", "Zoriyot", "Tur", "Najm", "Qamar", "Rahmon", "Voqea", "Hadid", "Mujodala", "Hashr", "Mumtahana", "Saff", "Jumua", "Munofiqun", "Tag'obun", "Taloq", "Tahrim", "Mulk", "Qalam", "Hoqqa", "Ma'orij", "Nuh", "Jinn", "Muzzammil", "Muddassir", "Qiyomat", "Inson", "Mursalot", "Naba'", "Nazi'ot", "Abasa", "Takvir", "Infitor", "Mutaffifin", "Inshiqoq", "Buruj", "Toriq", "A'lo", "G'oshiya", "Fajr", "Balad", "Shams", "Layl", "Zuho", "Sharh", "Tin", "Alaq", "Qadr", "Bayyina", "Zalzala", "Odiyot", "Qori'a", "Takasur", "Asr", "Humaza", "Fil", "Quraysh", "Mo'un", "Kavsar", "Kofirun", "Nasr", "Masad", "Ixlos", "Falaq", "Nos"]
 
@@ -591,25 +571,38 @@ async def send_audio(call: CallbackQuery):
     _, reciter_name, surah_num = call.data.split(":")
     surah_num = int(surah_num)
     
-    reciter_slug = RECITERS[reciter_name]
-    audio_url = f"https://cdn.islamic.network/quran/audio-surah/128/{reciter_slug}/{surah_num:03d}.mp3"
+    base_url = RECITERS[reciter_name]
+    audio_url = f"{base_url}{surah_num:03d}.mp3"
     
     await call.answer()
     current_page = (surah_num - 1) // 10
+    temp_file = f"/tmp/{surah_num}.mp3"
     
     try:
-        # URLInputFile orqali to'g'ridan-to'g'ri yuboramiz (xotirani tejaydi)
-        audio_file = URLInputFile(audio_url, filename=f"{surah_num}.mp3")
+        # Audio faylni server diskiga yuklab olamiz (RAMni tejaydi)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(audio_url) as resp:
+                if resp.status != 200: 
+                    raise Exception(f"Server holati: {resp.status}")
+                with open(temp_file, "wb") as f:
+                    f.write(await resp.read())
         
-        await call.message.answer_audio(
-            audio=audio_file, 
-            title=f"{surah_num}. {SURA_NAMES[surah_num-1]}", 
-            performer=reciter_name, 
-            caption=f"🎧 Qori: {reciter_name}\n📖 Sura: {surah_num}. {SURA_NAMES[surah_num-1]}",
-            reply_markup=surahs_menu(reciter_name, current_page)
-        )
+        # Diskdan Telegramga yuboramiz
+        if os.path.exists(temp_file):
+            audio_file = FSInputFile(temp_file, filename=f"{surah_num}.mp3")
+            await call.message.answer_audio(
+                audio=audio_file, 
+                title=f"{surah_num}. {SURA_NAMES[surah_num-1]}", 
+                performer=reciter_name, 
+                caption=f"🎧 Qori: {reciter_name}\n📖 Sura: {surah_num}. {SURA_NAMES[surah_num-1]}",
+                reply_markup=surahs_menu(reciter_name, current_page)
+            )
+            os.remove(temp_file) # Faylni o'chirib, joyni bo'shatamiz
+            
     except Exception as e:
         print(f"AUDIO XATOSI: {e}")
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
         await call.message.answer(f"❌ Audioni yuklab bo'lmadi. Xato: {type(e).__name__}")
 
 @dp.message(F.text.in_(["🔔 Eslatmani yoqish", "🔕 Eslatmani o'chirish", "🔔 Включить напоминания", "🔕 Отключить напоминания"]))
