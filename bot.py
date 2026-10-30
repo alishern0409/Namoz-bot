@@ -13,7 +13,7 @@ from aiogram.types import (
     Message, ReplyKeyboardMarkup, KeyboardButton, 
     ReplyKeyboardRemove, CallbackQuery, InlineKeyboardButton, 
     InlineQuery, InlineQueryResultArticle, InputTextMessageContent,
-    FSInputFile
+    InputMediaAudio
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -75,7 +75,7 @@ HADITHS = [
 TASBEH_COUNTS = {}
 TASBEH_DHIKRS = ["Subhanalloh", "Alhamdulilloh", "Allohu Akbar", "La ilaha illalloh", "Astag'firulloh", "La havla va la quvvata illa billah", "Subhanallohi va bihamdihi", "Subhanallohil 'Aziym", "La ilaha illallohu vahdahu la sharika lah", "Allohumma solli 'ala Muhammad", "Bismillah", "Hasbunallohu va ni'mal vakil", "La ilaha illa anta subhanaka inni kuntu minaz zolimin", "Ya Hayyu ya Qayyum birahmatika astag'is", "Rabbana atina fid dunya hasanatan va fil akhirati hasanatan va qina 'azaban nar", "Allohumma inni as'alukal jannata va a'uzu bika minan nar", "Robbi zidni 'ilma", "Robbi ighfir li va li validayya", "Allohumma ighfir li zanbi kullahu", "Subhanallohi va bihamdihi subhanallohil 'Aziym"]
 
-# --- QORILAR (Rasmiy CDN) ---
+# --- QORILAR (Rasmiy ishonchli CDN) ---
 RECITERS = {
     "Mishary Alafasy": "ar.alafasy",
     "Abdul Basit": "ar.abdulbasitmurattal",
@@ -592,45 +592,25 @@ async def send_audio(call: CallbackQuery):
     _, reciter_name, surah_num = call.data.split(":")
     surah_num = int(surah_num)
     
-    # Eng barqaror va tezkor server (64 kbps)
-    base_url = "https://server8.mp3quran.net/afs/64/"
-    audio_url = f"{base_url}{surah_num:03d}.mp3"
+    reciter_slug = RECITERS[reciter_name]
+    # Eng ishonchli va xalqaro miqyosda bloklanmagan rasmiy CDN manzili
+    audio_url = f"https://verses.quran.foundation/{reciter_slug}/murattal/mp3/{surah_num:03d}001.mp3"
     
     await call.answer("⏳ Yuklanmoqda...")
     current_page = (surah_num - 1) // 10
-    temp_file = f"temp_{surah_num}.mp3"
     
     try:
-        # Brauzer kabi yuklab olish (server bloklamasligi uchun)
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        async with aiohttp.ClientSession() as session:
-            async with session.get(audio_url, headers=headers, timeout=30) as resp:
-                if resp.status != 200: 
-                    raise Exception(f"HTTP {resp.status} xatosi")
-                
-                # Diskga yozamiz
-                with open(temp_file, "wb") as f:
-                    f.write(await resp.read())
-        
-        if os.path.exists(temp_file) and os.path.getsize(temp_file) > 0:
-            audio_file = FSInputFile(temp_file, filename=f"{surah_num}.mp3")
-            await call.message.answer_audio(
-                audio=audio_file, 
-                title=f"{surah_num}. {SURA_NAMES[surah_num-1]}", 
-                performer=reciter_name, 
-                caption=f"🎧 Qori: {reciter_name}\n📖 Sura: {surah_num}. {SURA_NAMES[surah_num-1]}",
-                reply_markup=surahs_menu(reciter_name, current_page)
-            )
-            os.remove(temp_file) # Faylni o'chirish
-        else:
-            raise Exception("Fayl yuklanmadi")
-
+        # InputMediaAudio orqali havolani to'g'ridan-to'g'ri Telegramga jo'natamiz (xotirani tejaydi)
+        await call.message.answer_audio(
+            audio=audio_url, 
+            title=f"{surah_num}. {SURA_NAMES[surah_num-1]}", 
+            performer=reciter_name, 
+            caption=f"🎧 Qori: {reciter_name}\n📖 Sura: {surah_num}. {SURA_NAMES[surah_num-1]}",
+            reply_markup=surahs_menu(reciter_name, current_page)
+        )
     except Exception as e:
         print(f"AUDIO XATOSI: {e}")
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
-        # Xatoni foydalanuvchiga aniq ko'rsatamiz
-        await call.message.answer(f"❌ Audio yuklanmadi. Xato: {str(e)[:50]}")
+        await call.message.answer(f"❌ Audioni yuklab bo'lmadi. Iltimos, keyinroq qayta urinib ko'ring.")
 
 @dp.message(F.text.in_(["🔔 Eslatmani yoqish", "🔕 Eslatmani o'chirish", "🔔 Включить напоминания", "🔕 Отключить напоминания"]))
 async def toggle_reminders(message: Message):
