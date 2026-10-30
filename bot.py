@@ -87,28 +87,28 @@ HADITHS = [
 TASBEH_COUNTS = {}
 TASBEH_DHIKRS = ["Subhanalloh", "Alhamdulilloh", "Allohu Akbar", "La ilaha illalloh", "Astag'firulloh", "La havla va la quvvata illa billah", "Subhanallohi va bihamdihi", "Subhanallohil 'Aziym", "La ilaha illallohu vahdahu la sharika lah", "Allohumma solli 'ala Muhammad", "Bismillah", "Hasbunallohu va ni'mal vakil", "La ilaha illa anta subhanaka inni kuntu minaz zolimin", "Ya Hayyu ya Qayyum birahmatika astag'is", "Rabbana atina fid dunya hasanatan va fil akhirati hasanatan va qina 'azaban nar", "Allohumma inni as'alukal jannata va a'uzu bika minan nar", "Robbi zidni 'ilma", "Robbi ighfir li va li validayya", "Allohumma ighfir li zanbi kullahu", "Subhanallohi va bihamdihi subhanallohil 'Aziym"]
 
-# --- QORILAR (QuranicAudio - 100% to'liq va ishonchli baza) ---
+# --- QORILAR (Islamic Network CDN - 100% ishonchli) ---
 RECITERS = {
-    "Mishary Alafasy": "mishaari_raashid_al_3afaasee",
-    "Abdul Basit": "abdul_basit_murattal",
-    "Saad Al-Ghamdi": "saad_al_ghamdi",
-    "Maher Al-Muaiqly": "maher_al_muaiqly",
-    "Abu Bakr Al-Shatri": "abu_bakr_ash-shaatree",
-    "Yasser Al-Dosari": "yasser_ad-dussary",
-    "Nasser Al-Qatami": "nasser_al_qatami",
-    "Hani Ar-Rifai": "hani_ar-rifai",
-    "Muhammad Al-Luhaidan": "muhammad_al_luhaidan",
-    "Mahmoud Al-Hussary": "mahmoud_khalil_al-hussary",
-    "Abdul Rahman Al-Sudais": "abdurrahmaan_as-sudays",
-    "Saud Al-Shuraim": "saood_ash-shuraym",
-    "Ali Al-Hudhaify": "ali_al-hudhaify",
-    "Ahmad Al-Ajmi": "ahmad_al-ajmi",
-    "Fares Abbad": "fares_abbad",
-    "Salah Bukhatir": "salah_bukhatir",
-    "Muhammad Al-Minshawi": "muhammad_siddiq_al-minshawi",
-    "Mustafa Ismail": "mustafa_ismail",
-    "Mahmoud Al-Banna": "mahmoud_al-banna",
-    "Abdullah Al-Juhany": "abdullah_al-juhany"
+    "Mishary Alafasy": "ar.alafasy",
+    "Abdul Basit": "ar.abdulbasitmurattal",
+    "Saad Al-Ghamdi": "ar.saadalghamdi",
+    "Maher Al-Muaiqly": "ar.mahermuaiqly",
+    "Abu Bakr Al-Shatri": "ar.abubakralshatri",
+    "Yasser Al-Dosari": "ar.yasseraldosari",
+    "Nasser Al-Qatami": "ar.nasserqatami",
+    "Hani Ar-Rifai": "ar.hanirifai",
+    "Muhammad Al-Luhaidan": "ar.muhammadalluhaidan",
+    "Mahmoud Al-Hussary": "ar.mahmoudkhalilalhusary",
+    "Abdul Rahman Al-Sudais": "ar.abdurrahmaansudais",
+    "Saud Al-Shuraim": "ar.saoodshuraym",
+    "Ali Al-Hudhaify": "ar.alihudhaify",
+    "Ahmad Al-Ajmi": "ar.ahmadalajmi",
+    "Fares Abbad": "ar.faresabbad",
+    "Salah Bukhatir": "ar.salahbukhatir",
+    "Muhammad Al-Minshawi": "ar.muhammadsiddiqalminshawi",
+    "Mustafa Ismail": "ar.mustafaalismail",
+    "Mahmoud Al-Banna": "ar.mahmoudalibanna",
+    "Abdullah Al-Juhany": "ar.abdullahaljuhany"
 }
 
 SURA_NAMES = ["Fotiha", "Baqara", "Oli Imron", "Niso", "Moida", "An'om", "A'rof", "Anfol", "Tavba", "Yunus", "Hud", "Yusuf", "Ra'd", "Ibrohim", "Hijr", "Nahl", "Isro", "Kahf", "Maryam", "Toha", "Anbiyo", "Haj", "Mu'minun", "Nur", "Furqon", "Shuaro", "Naml", "Qasas", "Ankabut", "Rum", "Luqmon", "Sajda", "Ahzob", "Saba", "Fatir", "Yosin", "Soffat", "Sod", "Zumar", "G'ofir", "Fussilat", "Sho'ro", "Zuhruf", "Duxon", "Josiya", "Ahqof", "Muhammad", "Fath", "Hujurot", "Qof", "Zoriyot", "Tur", "Najm", "Qamar", "Rahmon", "Voqea", "Hadid", "Mujodala", "Hashr", "Mumtahana", "Saff", "Jumua", "Munofiqun", "Tag'obun", "Taloq", "Tahrim", "Mulk", "Qalam", "Hoqqa", "Ma'orij", "Nuh", "Jinn", "Muzzammil", "Muddassir", "Qiyomat", "Inson", "Mursalot", "Naba'", "Nazi'ot", "Abasa", "Takvir", "Infitor", "Mutaffifin", "Inshiqoq", "Buruj", "Toriq", "A'lo", "G'oshiya", "Fajr", "Balad", "Shams", "Layl", "Zuho", "Sharh", "Tin", "Alaq", "Qadr", "Bayyina", "Zalzala", "Odiyot", "Qori'a", "Takasur", "Asr", "Humaza", "Fil", "Quraysh", "Mo'un", "Kavsar", "Kofirun", "Nasr", "Masad", "Ixlos", "Falaq", "Nos"]
@@ -606,15 +606,16 @@ async def send_audio(call: CallbackQuery):
     _, reciter_name, surah_num = call.data.split(":")
     surah_num = int(surah_num)
     
-    # QuranicAudio rasmiy bazasi (100% ishonchli va to'liq)
-    reciter_slug = RECITERS.get(reciter_name, "mishaari_raashid_al_3afaasee")
-    audio_url = f"https://download.quranicaudio.com/quran/{reciter_slug}/{surah_num:03d}.mp3"
+    # Islamic Network rasmiy CDN manzili
+    reciter_slug = RECITERS.get(reciter_name, "ar.alafasy")
+    audio_url = f"https://cdn.islamic.network/quran/audio-surah/128/{reciter_slug}/{surah_num}.mp3"
     current_page = (surah_num - 1) // 10
     
     msg = await call.message.answer("⏳ Audio yuklanmoqda, iltimos kuting...")
     temp_file = f"temp_{surah_num}.mp3"
     
     try:
+        # Brauzer kabi yuklab olamiz (xatoliklarni chetlab o'tish uchun)
         headers = {'User-Agent': 'Mozilla/5.0'}
         timeout = aiohttp.ClientTimeout(total=120)
         
