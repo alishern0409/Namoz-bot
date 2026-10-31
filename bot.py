@@ -41,8 +41,16 @@ cursor.execute('CREATE TABLE IF NOT EXISTS favorites (id INTEGER PRIMARY KEY AUT
 conn.commit()
 
 # Qur'on bazasiga ulanish
-quran_conn = sqlite3.connect('quran.db', check_same_thread=False)
-quran_cursor = quran_conn.cursor()
+try:
+    quran_conn = sqlite3.connect('quran.db', check_same_thread=False)
+    quran_cursor = quran_conn.cursor()
+    quran_cursor.execute("SELECT COUNT(*) FROM quran")
+    count = quran_cursor.fetchone()[0]
+    print(f"✅ QURAN.DB MUVAFFAQIYATLI YUKLANDI: {count} ta oyat bazada bor!")
+except Exception as e:
+    print(f"❌ QURAN.DB YUKLASHDA XATO: {e}")
+    quran_conn = None
+    quran_cursor = None
 
 TASBEH_DHIKRS = ["Subhanalloh", "Alhamdulilloh", "Allohu Akbar", "La ilaha illalloh", "Astag'firulloh", "La havla va la quvvata illa billah", "Subhanallohi va bihamdihi", "Subhanallohil 'Aziym", "La ilaha illallohu vahdahu la sharika lah", "Allohumma solli 'ala Muhammad", "Bismillah", "Hasbunallohu va ni'mal vakil", "La ilaha illa anta subhanaka inni kuntu minaz zolimin", "Ya Hayyu ya Qayyum birahmatika astag'is", "Rabbana atina fid dunya hasanatan va fil akhirati hasanatan va qina 'azaban nar", "Allohumma inni as'alukal jannata va a'uzu bika minan nar", "Robbi zidni 'ilma", "Robbi ighfir li va li validayya", "Allohumma ighfir li zanbi kullahu", "Subhanallohi va bihamdihi subhanallohil 'Aziym"]
 TASBEH_COUNTS = {}
