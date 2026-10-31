@@ -98,7 +98,7 @@ QUIZ_QUESTIONS = [
     {"q": "Kim yolg'on guvohlik bersa, u...", "options": ["Mo'min emas", "Mo'mindir", "Musulmondir", "Muhosirdir"], "answer": "Mo'min emas"},
     {"q": "Qur'onda nechta jannat nomi zikr qilingan?", "options": ["5", "7", "9", "11"], "answer": "7"},
     {"q": "Qaysi oy Islom oyining birinchisi?", "options": ["Ramazon", "Muharram", "Rajab", "Sha'bon"], "answer": "Muharram"},
-    {"q": "Qaysi oy Qur'on nozil bo'lgan oy?", "options": ["Rajab", "Ramazon", "Shavvol", "Muharram"], "answer": "Ramazon"}
+    {"q": "Qaysi oy Qur'on nozil bo'lgan oy?", "options": ["Rajab", "Ramazon", "Shavvol", "Muharram"], "answer": "Ramazon"},
 {"q": "Qaysi sura 'Qur'onning kelini' deb ataladi?", "options": ["Yosin", "Rahmon", "Vaqia", "Mulk"], "answer": "Rahmon"},
 {"q": "Qur'onda 'Ramazon' so'zi necha marta zikr qilingan?", "options": ["1", "2", "3", "5"], "answer": "1"},
 {"q": "Islomning birinchi rukni nima?", "options": ["Namoz", "Ro'za", "Shahodat", "Zakot"], "answer": "Shahodat"},
