@@ -16,6 +16,22 @@ from pyrogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 from pyrogram.enums import ChatMemberStatus, ChatType
+# --- VIKTORINA FAYLLARIDAGI VERGUL XATOLARINI AVTOMATIK TUZATISH ---
+quiz_files = ["quiz_tarix.py", "quiz_hadis.py", "quiz_quron.py", "quiz_shariat.py"]
+for file in quiz_files:
+    if os.path.exists(file):
+        try:
+            with open(file, "r", encoding="utf-8") as f:
+                content = f.read()
+            # Savollar orasida vergul tushib qolgan bo'lsa, avtomatik qo'shadi
+            fixed = re.sub(r'\}(\s*)\{', r'},\1{', content)
+            if fixed != content:
+                with open(file, "w", encoding="utf-8") as f:
+                    f.write(fixed)
+                print(f"✅ {file} faylidagi vergul xatolari avtomatik tuzatildi!")
+        except Exception as e:
+            print(f"⚠️ {file} faylini tuzatishda xatolik: {e}")
+# ---------------------------------------------------------------------
 
 # --- FAYLLARNI YUKLASH ---
 try:
