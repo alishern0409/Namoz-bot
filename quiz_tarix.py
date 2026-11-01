@@ -99,7 +99,7 @@ TARIX_QUESTIONS = [
   {"q": "Qur'onning eng uzun surasi qaysi?", "options": ["Baqara", "Oli Imron", "Niso", "Moida"], "answer": "Baqara"},
   {"q": "Qur'onning eng qisqa surasi qaysi?", "options": ["Kavsar", "Ixlos", "Nos", "Falaq"], "answer": "Kavsar"},
   {"q": "Qur'on nechta juzdan iborat?", "options": ["30 ta", "20 ta", "40 ta", "60 ta"], "answer": "30 ta"},
-  {"q": "Islomda ilk masjid qayerda qurilgan?", "options": ["Quba (Madina yaqinida)", "Makka", "Quddus", "Toif"], "answer": "Quba (Madina yaqinida)"}
+  {"q": "Islomda ilk masjid qayerda qurilgan?", "options": ["Quba (Madina yaqinida)", "Makka", "Quddus", "Toif"], "answer": "Quba (Madina yaqinida)"},
   {"q": "Hazrat Muhammad (s.a.v.) ning bobosi kim edi?", "options": ["Abdulmuttalib", "Abu Tolib", "Abdulloh", "Abbos"], "answer": "Abdulmuttalib"},
   {"q": "Hazrat Muhammad (s.a.v.) ning otasi kim edi?", "options": ["Abdulloh", "Abdulmuttalib", "Abu Tolib", "Hamza"], "answer": "Abdulloh"},
   {"q": "Hazrat Muhammad (s.a.v.) ning onasi kim edi?", "options": ["Omina bint Vahb", "Halima Sa'diya", "Xadicha bint Xuvaylid", "Oisha bint Abu Bakr"], "answer": "Omina bint Vahb"},
