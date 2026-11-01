@@ -1109,3 +1109,4 @@ TARIX_QUESTIONS = [
   {"q": "Ayub Xon qaysi lavozimda bo'lgan?", "options": ["Pokiston prezidenti", "Pokiston bosh vaziri", "Pokiston asoschisi", "Pokiston gubernatori"], "answer": "Pokiston prezidenti"},
   {"q": "Zulfiqor Ali Bhutto qaysi lavozimda bo'lgan?", "options": ["Pokiston bosh vaziri va prezidenti", "Pokiston asoschisi", "Pokiston gubernatori", "Pokiston armiyasi boshlig'i"], "answer": "Pokiston bosh vaziri va prezidenti"},
   {"q": "Pokistonning birinchi ayol bosh vaziri kim?", "options": ["Benazir Bhutto", "Fatima Jinnah", "Shaheed Rani", "Hina Rabbani"], "answer": "Benazir Bhutto"}
+]
