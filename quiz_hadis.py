@@ -1004,3 +1004,4 @@ HADIS_QUESTIONS = [
     {"q": "«Al-Furu’» asari qaysi mazhabning fiqhiy asarlaridan?", "options": ["Hanbaliy", "Hanafiy", "Shofe’iy", "Molikiy"], "answer": "Hanbaliy"},
     {"q": "«Al-Mubdi’» asari qaysi mazhabning fiqhiy asarlaridan?", "options": ["Hanbaliy", "Hanafiy", "Shofe’iy", "Molikiy"], "answer": "Hanbaliy"},
     {"q": "«Al-Muqni’» asari qaysi mazhabning fiqhiy asarlaridan?", "options": ["Hanbaliy", "Hanafiy", "Shofe’iy", "Molikiy"], "answer": "Hanbaliy"}
+]
