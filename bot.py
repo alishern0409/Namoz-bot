@@ -669,9 +669,16 @@ async def toggle_reminders(client, message: Message):
     await message.reply("✅ Namoz eslatmalari yoqildi." if new_status == 1 else "🔕 Namoz eslatmalari o'chirildi.", reply_markup=main_menu(new_status == 1))
 
 
-# =====================================================================
-# --- ENG PASTDAGI HANDLERLAR (QIDIRUV BILAN ARALASHMASLIGI UCHUN) ---
-# =====================================================================
+# 1. API so'rovi (O'sha fayldagidek)
+async def fetch_prayer_times(lat: float, lon: float) -> dict:
+    url = "https://api.aladhan.com/v1/timings"
+    params = {"latitude": lat, "longitude": lon, "method": 3}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as resp:
+            data = await resp.json()
+            return data["data"]["timings"]
+
+# 2. Lokatsiya (O'sha fayldagidek)
 @app.on_message(filters.location)
 async def handle_location(client, message: Message):
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (message.from_user.id,))
@@ -679,34 +686,28 @@ async def handle_location(client, message: Message):
     conn.commit()
     await message.reply("✅ Lokatsiya saqlandi!", reply_markup=main_menu(False))
 
+# 3. Namoz vaqtlari (O'sha fayldagidek)
 @app.on_message(filters.regex(r"^🕌 Namoz vaqtlari$"))
 async def get_times(client, message: Message):
     cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
     user = cursor.fetchone()
-    if not user or not user[0]:
-        kb = ReplyKeyboardMarkup([[KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)], [KeyboardButton("⬅️ Orqaga")]], resize_keyboard=True)
-        return await message.reply("Namoz vaqtlarini aniqlash uchun iltimos, lokatsiyangizni yuboring:", reply_markup=kb)
+    if not user or not user[0]: return await message.reply("Iltimos, avval lokatsiya yuboring.")
     msg = await message.reply("⏳ Hisoblanmoqda...")
     try:
         timings = await fetch_prayer_times(user[0], user[1])
         text = f"🕌 **Bugungi namoz vaqtlari**\n\n" + "\n".join([f"• {label}: **{timings[name]}**" for name, label in [("Fajr", "Bomdod"), ("Dhuhr", "Peshin"), ("Asr", "Asr"), ("Maghrib", "Shom"), ("Isha", "Xufton")]])
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("📍 Lokatsiyani yangilash", callback_data="update_location")]])
-        await msg.edit_text(text, reply_markup=kb)
-    except Exception as e: await msg.edit_text(f"❌ Xatolik: {e}")
+        await msg.edit_text(text)
+    except Exception as e: 
+        await msg.edit_text(f"❌ Xatolik: {e}")
 
+# 4. Qibla yo'nalishi (O'sha fayldagidek)
 @app.on_message(filters.regex(r"^🧭 Qibla yo'nalishi$"))
 async def get_qibla(client, message: Message):
     cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
     user = cursor.fetchone()
-    if not user or not user[0]:
-        kb = ReplyKeyboardMarkup([[KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)], [KeyboardButton("⬅️ Orqaga")]], resize_keyboard=True)
-        return await message.reply("Qibla yo'nalishini aniqlash uchun iltimos, lokatsiyangizni yuboring:", reply_markup=kb)
+    if not user: return await message.reply("Iltimos, avval lokatsiya yuboring.")
     degree = calculate_qibla(user[0], user[1])
-    direction = get_direction_name(degree)
-    text = f"🧭 **Qibla yo'nalishi:**\n\nBurchak: **{degree:.1f}°**\nYo'nalish: **{direction}**\n\n📍 *Telefoningizdagi kompasni ochib, Shimolni toping va {degree:.1f}° burchakka yuzlaning.*"
-    maps_url = "https://www.google.com/maps/dir/?api=1&destination=21.4225,39.8262"
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Xaritada ko'rish", url=maps_url)], [InlineKeyboardButton("📍 Lokatsiyani yangilash", callback_data="update_location")]])
-    await message.reply(text, reply_markup=kb, disable_web_page_preview=True)
+    await message.reply(f"🧭 **Qibla yo'nalishi:** **{degree:.1f}°**")
 
 async def main():
     print("Bot muvaffaqiyatli ishga tushdi...")
