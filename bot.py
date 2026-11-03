@@ -15,47 +15,12 @@ from pyrogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-# ==========================================
-# --- MA'LUMOTLARNI YUKLASH ---
-# ==========================================
+# --- HADISLARNI YUKLASH (hadiths_data.py faylidan) ---
 try:
     from hadiths_data import HADITHS
 except ImportError:
-    HADITHS = ["Hadis fayli topilmadi."]
-
-try:
-    from duolar_data import DUOLAR
-except ImportError:
-    DUOLAR = {}
-
-try:
-    from marifiy_data import ALL_NAMES, TAHORAT_TEXT, RAMAZON_TEXT, SIYRAT_TEXT
-except ImportError:
-    ALL_NAMES = []
-    TAHORAT_TEXT = "Tahorat ma'lumoti topilmadi."
-    RAMAZON_TEXT = "Ramazon ma'lumoti topilmadi."
-    SIYRAT_TEXT = "Siyrat ma'lumoti topilmadi."
-
-try:
-    from quiz_quron import QURON_QUESTIONS
-except ImportError:
-    QURON_QUESTIONS = [{"q": "Qur'on fayli topilmadi?", "options": ["A", "B"], "answer": "A"}]
-
-try:
-    from quiz_hadis import HADIS_QUESTIONS
-except ImportError:
-    HADIS_QUESTIONS = [{"q": "Hadis fayli topilmadi?", "options": ["A", "B"], "answer": "A"}]
-
-try:
-    from quiz_tarix import TARIX_QUESTIONS
-except ImportError:
-    TARIX_QUESTIONS = [{"q": "Tarix fayli topilmadi?", "options": ["A", "B"], "answer": "A"}]
-
-try:
-    from quiz_shariat import SHARIAT_QUESTIONS
-except ImportError:
-    SHARIAT_QUESTIONS = [{"q": "Shariat fayli topilmadi?", "options": ["A", "B"], "answer": "A"}]
-
+    print("XATOLIK: 'hadiths_data.py' fayli topilmadi yoki ichida HADITHS ro'yxati yo'q!")
+    HADITHS = ["Iltimos, hadiths_data.py faylini yarating va unga 500 ta hadisni kiriting."]
 
 # --- SOZLAMALAR ---
 BOT_TOKEN = "9244020327:AAE4ae-hddNmTu52OU8bkq-aTObXHIROsss"
@@ -73,7 +38,6 @@ app = Client(
 # --- HOLATLAR VA VAQTINCHALIK XOTIRA ---
 USER_STATES = {}
 TEMP_FAV = {} 
-TASBEH_COUNTS = {}
 
 # --- MA'LUMOTLAR BAZASI ---
 conn = sqlite3.connect('users.db', check_same_thread=False)
@@ -99,6 +63,37 @@ TASBEH_DHIKRS = [
     "Robbi zidni 'ilma", "Robbi ighfir li va li validayya",
     "Allohumma ighfir li zanbi kullahu",
     "Subhanallohi va bihamdihi subhanallohil 'Aziym"
+]
+TASBEH_COUNTS = {}
+
+# --- DUOLAR ---
+DUOLAR = {
+    "uydan_chiqish": {"nomi": "🚪 Uydan chiqish", "arabcha": "بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ", "oqilishi": "Bismillahi, tavakkaltu 'alallohi, va la havla va la quvvata illa billah.", "tarjima": "Allohning nomi bilan (chiqaman). Allohga tavakkal qildim. Kuch-quvvat faqat Allohdan.", "manba": "Abu Dovud, Termiziy"},
+    "uyga_kirish": {"nomi": "🏠 Uyga kirish", "arabcha": "اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ الْمَوْلَجِ وَخَيْرَ الْمَخْرَجِ", "oqilishi": "Allohumma inni as'aluka xayral mavlaji va xayral maxraji.", "tarjima": "Allohim, men Sendan eng yaxshi kirish va eng yaxshi chiqishni so'rayman.", "manba": "Abu Dovud"},
+    "ovqatdan_oldin": {"nomi": "🍽 Ovqatdan oldin", "arabcha": "بِسْمِ اللَّهِ", "oqilishi": "Bismillah.", "tarjima": "Allohning nomi bilan.", "manba": "Buxoriy, Muslim"},
+    "ovqatdan_keyin": {"nomi": "🍽 Ovqatdan keyin", "arabcha": "الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا وَجَعَلَنَا مِنَ الْمُسْلِمِينَ", "oqilishi": "Alhamdulillahillazi at'amana va saqona va ja'alana minal muslimin.", "tarjima": "Bizni taomlantirgan, suv ichirgan va muslimlardan qilgan Allohga hamd bo'lsin.", "manba": "Termiziy, Abu Dovud"},
+    "uyqudan_oldin": {"nomi": "🌙 Uyqudan oldin", "arabcha": "بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا", "oqilishi": "Bismikallohumma amutu va ahya.", "tarjima": "Allohim, Sening isming bilan o'laman va tirilaman.", "manba": "Buxoriy"},
+    "uyqudan_uygonish": {"nomi": "☀️ Uyqudan uyg'onish", "arabcha": "الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ", "oqilishi": "Alhamdulillahillazi ahyana ba'da ma amatana va ilayhin nushur.", "tarjima": "Bizni o'ldirgandan keyin tiriltirgan Allohga hamd bo'lsin, qaytish Uning O'zigadir.", "manba": "Buxoriy"},
+    "istigfor": {"nomi": "🤲 Sayyidul Istig'for", "arabcha": "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ خَلَقْتَنِي وَأَنَا عَبْدُكَ وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ", "oqilishi": "Allohumma anta Robbi la ilaha illa anta, xalaqtani va ana 'abduka, va ana 'ala 'ahdika va va'dika mastata'tu, a'uzu bika min sharri ma sana'tu, abu'u laka bini'matika 'alayya, va abu'u bi zanbi, fag'fir li fa innahu la yag'firuz zunuba illa anta.", "tarjima": "Allohim, Sen mening Rabbimsan, Sendan boshqa iloh yo'q. Meni yaratding, men Sening bandangman. Qo'limdan kelgancha ahdu vafoga turmoqdaman. Qilgan ishlarimning yomonligidan Sendan panoh tilayman. Menga bergan ne'matlaringni tan olaman va gunohimni iqror bo'laman. Meni mag'firat qil, chunki Sendan boshqa gunohlarni mag'firat qiluvchi yo'q.", "manba": "Buxoriy"}
+}
+
+# --- ALLOHNING 99 ISMI ---
+ALL_NAMES = [
+    ("Ar-Rahman", "Rahmli", "Allohning cheksiz rahm-shafqati va marhamati barcha yaratilganlarga qamrab oladi."),
+    ("Ar-Rahim", "Mehribon", "Allohning mo'minlarga bo'lgan alohida rahmrati va ularni jannat bilan mukofotlashi."),
+    ("Al-Malik", "Podsho", "Alloh butun olamning yagona egasi va hukmdori."),
+    ("Al-Quddus", "Muqaddas", "Alloh har qanday kamchilikdan pok va mukammaldir."),
+    ("As-Salam", "Tinchlik", "Alloh tinchlik manbai va bandalarini xavfsizlikka yetaklaydi."),
+    ("Al-Mu'min", "Ishonch beruvchi", "Alloh bandalariga xavfsizlik va ishonch beradi."),
+    ("Al-Muhaymin", "Nazorat qiluvchi", "Alloh barcha narsani kuzatib turadi va himoya qiladi."),
+    ("Al-Aziz", "Qudratli", "Alloh cheksiz qudrat egasi, hech kim Unga g'olib kela olmaydi."),
+    ("Al-Jabbar", "Kuchli", "Alloh irodasi bilan hamma narsani o'zgartira oladi."),
+    ("Al-Mutakabbir", "Ulug'", "Alloh barcha ulug'lik va buyuklikning egasidir."),
+    ("Al-Khaliq", "Yaratuvchi", "Alloh barcha mavjudotni yo'qdan yaratgan."),
+    ("Al-Bari'", "Ijodkor", "Alloh har bir narsani o'ziga xos shaklda ijod qilgan."),
+    ("Al-Musawwir", "Shakl beruvchi", "Alloh yaratilganlarga chiroyli va mos shakl bergan."),
+    ("Al-Ghaffar", "Kechiruvchi", "Alloh bandalarining gunohlarini ko'p marta kechiradi."),
+    ("Al-Qahhar", "G'olib", "Alloh barcha narsadan ustun va g'olibdir.")
 ]
 
 # --- QORILAR ---
@@ -131,7 +126,7 @@ SURA_NAMES = ["Fotiha", "Baqara", "Oli Imron", "Niso", "Moida", "An'om", "A'rof"
 async def fetch_prayer_times(lat: float, lon: float) -> dict:
     url = "https://api.aladhan.com/v1/timings"
     params = {"latitude": lat, "longitude": lon, "method": 3}
-    timeout = aiohttp.ClientTimeout(total=15)
+    timeout = aiohttp.ClientTimeout(total=15) # Qotib qolmasligi uchun vaqt chegarasi
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(url, params=params) as resp:
             data = await resp.json()
@@ -163,7 +158,7 @@ def main_menu(reminders_status=False):
         [KeyboardButton("📿 Raqamli Tasbeh"), KeyboardButton("📖 Kunlik oyat")],
         [KeyboardButton("📜 Kunlik hadis"), KeyboardButton("⭐ Sevimlilar")],
         [KeyboardButton("🎮 Viktorina"), KeyboardButton("🔍 Qidiruv tizimi")],
-        [KeyboardButton("📚 Diniy ma'rifiy"), KeyboardButton(belgi)],
+        [KeyboardButton("📚 Diniy ma'rifiy"), KeyboardButton("⚙️ Sozlamalar")],
         [KeyboardButton("📍 Lokatsiyani yangilash", request_location=True)]
     ], resize_keyboard=True)
 
@@ -230,141 +225,7 @@ def names_menu(page=0):
     if nav: buttons.append(nav)
     return InlineKeyboardMarkup(buttons)
 
-def viktorina_menu():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🕋 Islom tarixi", callback_data="quiz_start:tarix"), InlineKeyboardButton("📜 Hadislar", callback_data="quiz_start:hadis")],
-        [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_start:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_start:shariat")]
-    ])
-
-
-# ==========================================
-# --- DISPATCHER (BARCHA MATNLAR UCHUN) ---
-# ==========================================
-@app.on_message(filters.text & filters.private & ~filters.regex(r"^/"))
-async def handle_text_messages(client, message: Message):
-    user_id = message.from_user.id
-    text = message.text.strip()
-
-    # 1. QIDIRUV REJIMI
-    if USER_STATES.get(user_id) == "search":
-        menu_buttons = [
-            "🕌 Namoz vaqtlari", "🧭 Qibla yo'nalishi", "🎧 Qorilar va qiroatlar", 
-            "🤲 Duolar", "📿 Raqamli Tasbeh", "📖 Kunlik oyat", "📜 Kunlik hadis", 
-            "⭐ Sevimlilar", "🎮 Viktorina", "🔍 Qidiruv tizimi", "📚 Diniy ma'rifiy", 
-            "⚙️ Sozlamalar", "📍 Lokatsiyani yangilash", "🔔 Eslatmani yoqish", "🔕 Eslatmani o'chirish"
-        ]
-        
-        if text not in menu_buttons:
-            USER_STATES[user_id] = None
-            msg = await message.reply("⏳ Qidirilmoqda...")
-            try:
-                encoded_text = urllib.parse.quote(text)
-                url = f"https://api.alquran.cloud/v1/search/{encoded_text}/all/uz.sodik"
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as resp:
-                        data = await resp.json()
-                        if data["code"] == 200 and data["data"]["count"] > 0:
-                            res = f"🔍 **'{text}' so'zi bo'yicha natijalar:**\n\n"
-                            for match in data["data"]["matches"][:5]:
-                                res += f"📖 **{match['surah']['name']} {match['numberInSurah']}-oyat:**\n_{match['text']}_\n\n"
-                            await msg.edit_text(res, reply_markup=main_menu(False))
-                        else:
-                            await msg.edit_text(f"❌ Kechirasiz, '{text}' so'zi bo'yicha hech narsa topilmadi.", reply_markup=main_menu(False))
-            except Exception as e:
-                await msg.edit_text("❌ Qidiruvda xatolik yuz berdi.", reply_markup=main_menu(False))
-            return
-
-    # 2. MENYU TUGMALARI
-    if text == "🕌 Namoz vaqtlari":
-        cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (user_id,))
-        user = cursor.fetchone()
-        if not user or user[0] is None or user[1] is None:
-            return await message.reply("Iltimos, avval pastdagi **'📍 Lokatsiyani yangilash'** tugmasini bosib, lokatsiya yuboring.")
-        
-        msg = await message.reply("⏳ Hisoblanmoqda...")
-        try:
-            timings = await fetch_prayer_times(user[0], user[1])
-            res_text = f"🕌 **Bugungi namoz vaqtlari**\n\n" + "\n".join([f"• {label}: **{timings[name]}**" for name, label in [("Fajr", "Bomdod"), ("Dhuhr", "Peshin"), ("Asr", "Asr"), ("Maghrib", "Shom"), ("Isha", "Xufton")]])
-            await msg.edit_text(res_text)
-        except Exception:
-            await msg.edit_text("❌ Xatolik: API server javob bermayapti. Internet aloqasini tekshiring.")
-
-    elif text == "🧭 Qibla yo'nalishi":
-        cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (user_id,))
-        user = cursor.fetchone()
-        if not user or user[0] is None or user[1] is None:
-            return await message.reply("Iltimos, avval pastdagi **'📍 Lokatsiyani yangilash'** tugmasini bosib, lokatsiya yuboring.")
-        
-        degree = calculate_qibla(user[0], user[1])
-        await message.reply(f"🧭 **Qibla yo'nalishi:** **{degree:.1f}°**")
-
-    elif text == "🎧 Qorilar va qiroatlar":
-        await message.reply("🎧 **Mashhur qorilar**", reply_markup=reciters_menu(0))
-
-    elif text == "🤲 Duolar":
-        await message.reply("🤲 **Sahih hadislardan olingan duolar**\n\nVaziyatni tanlang:", reply_markup=duolar_menu())
-
-    elif text == "📿 Raqamli Tasbeh":
-        TASBEH_COUNTS[user_id] = 0
-        await message.reply("📿 **Raqamli Tasbeh**\n\nQaysi zikrni ayta olmaysiz? Ro'yxatdan tanlang:", reply_markup=tasbeh_dhikrs_menu())
-
-    elif text == "📖 Kunlik oyat":
-        msg = await message.reply("⏳ Oyat qidirilmoqda...")
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get("https://api.alquran.cloud/v1/ayah/random/uz.sodik") as resp:
-                    data = await resp.json()
-                    ayah = data["data"]
-                    ayah_text = f"📖 **Kunlik oyat**\n\n_{ayah['text']}_\n\n*{ayah['surah']['name']} surasi, {ayah['numberInSurah']}-oyat*"
-                    
-                    fav_id = str(uuid.uuid4())
-                    TEMP_FAV[fav_id] = ayah_text
-                    kb = InlineKeyboardMarkup([[InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:oyat:{fav_id}")]])
-                    await msg.edit_text(ayah_text, reply_markup=kb)
-        except:
-            await msg.edit_text("❌ Xatolik yuz berdi.")
-
-    elif text == "📜 Kunlik hadis":
-        if not HADITHS: return await message.reply("Hadislar topilmadi.")
-        hadith_text = random.choice(HADITHS)
-        hadith_msg = f"📜 **Hadis**\n\n_{hadith_text}_"
-        fav_id = str(uuid.uuid4())
-        TEMP_FAV[fav_id] = hadith_msg
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:hadis:{fav_id}")]])
-        await message.reply(hadith_msg, reply_markup=kb)
-
-    elif text == "⭐ Sevimlilar":
-        cursor.execute("SELECT fav_text FROM favorites WHERE user_id = ?", (user_id,))
-        favs = cursor.fetchall()
-        if not favs: return await message.reply("⭐ Sizda hali sevimli ma'lumotlar yo'q.")
-        res = "⭐ **Sevimlilar:**\n\n"
-        for fav in favs: res += f"• {fav[0][:100]}...\n\n"
-        await message.reply(res)
-
-    elif text == "🎮 Viktorina":
-        await message.reply("🎮 **Viktorina bo'limini tanlang:**", reply_markup=viktorina_menu())
-
-    elif text == "📚 Diniy ma'rifiy":
-        await message.reply("📚 **Bo'limni tanlang:**", reply_markup=ilmiy_menu())
-
-    elif text == "🔍 Qidiruv tizimi":
-        USER_STATES[user_id] = "search"
-        await message.reply("🔍 **Qidiruv rejimi yoqildi.**\n\nKetma-ket qidiruv uchun so'zlarni yozib yuboraverasiz. Qidiruvdan chiqish uchun boshqa bo'limni tanlang yoki /start bosing.")
-
-    elif text in ["🔔 Eslatmani yoqish", "🔕 Eslatmani o'chirish"]:
-        cursor.execute("SELECT reminders FROM users WHERE user_id = ?", (user_id,))
-        user = cursor.fetchone()
-        if not user: 
-            return await message.reply("Iltimos, avval lokatsiya yuboring.")
-        
-        new_status = 0 if user[0] == 1 else 1
-        cursor.execute("UPDATE users SET reminders = ? WHERE user_id = ?", (new_status, user_id))
-        conn.commit()
-        await message.reply("✅ Namoz eslatmalari yoqildi." if new_status == 1 else "🔕 Namoz eslatmalari o'chirildi.", reply_markup=main_menu(new_status == 1))
-
-# ==========================================
-# --- LOKATSIYA VA START ---
-# ==========================================
+# --- BOT HANDLERLARI ---
 @app.on_message(filters.command("start") & filters.private)
 async def cmd_start(client, message: Message):
     USER_STATES[message.from_user.id] = None 
@@ -377,7 +238,108 @@ async def handle_location(client, message: Message):
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (message.from_user.id,))
     cursor.execute("UPDATE users SET lat = ?, lon = ? WHERE user_id = ?", (message.location.latitude, message.location.longitude, message.from_user.id))
     conn.commit()
-    await message.reply("✅ Lokatsiya saqlandi! Endi namoz vaqtlari va qiblani bilib olishingiz mumkin.", reply_markup=main_menu(False))
+    await message.reply("✅ Lokatsiya saqlandi!", reply_markup=main_menu(False))
+
+# ==========================================
+# TUZATILGAN QISM: EMojisiz matn orqali ushlash
+# ==========================================
+@app.on_message(filters.regex(r"Namoz vaqtlari"))
+async def get_times(client, message: Message):
+    cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
+    user = cursor.fetchone()
+    
+    # Lokatsiya bazada bo'sh (None) bo'lsa, xato bermasligi uchun tekshiruv
+    if not user or user[0] is None or user[1] is None: 
+        return await message.reply("Iltimos, avval pastdagi **'📍 Lokatsiyani yangilash'** tugmasini bosib, lokatsiya yuboring.")
+    
+    msg = await message.reply("⏳ Hisoblanmoqda...")
+    try:
+        timings = await fetch_prayer_times(user[0], user[1])
+        text = f"🕌 **Bugungi namoz vaqtlari**\n\n" + "\n".join([f"• {label}: **{timings[name]}**" for name, label in [("Fajr", "Bomdod"), ("Dhuhr", "Peshin"), ("Asr", "Asr"), ("Maghrib", "Shom"), ("Isha", "Xufton")]])
+        await msg.edit_text(text)
+    except Exception as e: 
+        await msg.edit_text(f"❌ Xatolik: API server javob bermayapti. Internet aloqasini tekshiring.")
+
+@app.on_message(filters.regex(r"Qibla yo'nalishi"))
+async def get_qibla(client, message: Message):
+    cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
+    user = cursor.fetchone()
+    
+    # Lokatsiya bazada bo'sh (None) bo'lsa, xato bermasligi uchun tekshiruv
+    if not user or user[0] is None or user[1] is None: 
+        return await message.reply("Iltimos, avval pastdagi **'📍 Lokatsiyani yangilash'** tugmasini bosib, lokatsiya yuboring.")
+        
+    try:
+        degree = calculate_qibla(user[0], user[1])
+        await message.reply(f"🧭 **Qibla yo'nalishi:** **{degree:.1f}°**")
+    except Exception:
+        await message.reply("❌ Hisoblashda xatolik yuz berdi.")
+# ==========================================
+
+@app.on_message(filters.regex(r"^🎧 Qorilar va qiroatlar$"))
+async def show_reciters(client, message: Message):
+    await message.reply("🎧 **Mashhur qorilar**", reply_markup=reciters_menu(0))
+
+@app.on_message(filters.regex(r"^🤲 Duolar$"))
+async def show_duolar(client, message: Message):
+    await message.reply("🤲 **Sahih hadislardan olingan duolar**\n\nVaziyatni tanlang:", reply_markup=duolar_menu())
+
+@app.on_message(filters.regex(r"^📿 Raqamli Tasbeh$"))
+async def tasbeh_start(client, message: Message):
+    TASBEH_COUNTS[message.from_user.id] = 0
+    await message.reply("📿 **Raqamli Tasbeh**\n\nQaysi zikrni ayta olmaysiz? Ro'yxatdan tanlang:", reply_markup=tasbeh_dhikrs_menu())
+
+@app.on_message(filters.regex(r"^📖 Kunlik oyat$"))
+async def get_ayah(client, message: Message):
+    msg = await message.reply("⏳ Oyat qidirilmoqda...")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://api.alquran.cloud/v1/ayah/random/uz.sodik") as resp:
+                data = await resp.json()
+                ayah = data["data"]
+                text = f"📖 **Kunlik oyat**\n\n_{ayah['text']}_\n\n*{ayah['surah']['name']} surasi, {ayah['numberInSurah']}-oyat*"
+                
+                fav_id = str(uuid.uuid4())
+                TEMP_FAV[fav_id] = text
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:oyat:{fav_id}")]])
+                await msg.edit_text(text, reply_markup=kb)
+    except: await msg.edit_text("❌ Xatolik.")
+
+@app.on_message(filters.regex(r"^📜 Kunlik hadis$"))
+async def get_hadith(client, message: Message):
+    hadith_text = random.choice(HADITHS)
+    text = f"📜 **Hadis**\n\n_{hadith_text}_"
+    fav_id = str(uuid.uuid4())
+    TEMP_FAV[fav_id] = text
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:hadis:{fav_id}")]])
+    await message.reply(text, reply_markup=kb)
+
+@app.on_message(filters.regex(r"^⭐ Sevimlilar$"))
+async def show_favorites(client, message: Message):
+    cursor.execute("SELECT fav_text FROM favorites WHERE user_id = ?", (message.from_user.id,))
+    favs = cursor.fetchall()
+    if not favs: return await message.reply("⭐ Sizda hali sevimli ma'lumotlar yo'q.")
+    text = "⭐ **Sevimlilar:**\n\n"
+    for fav in favs: text += f"• {fav[0][:100]}...\n\n"
+    await message.reply(text)
+
+@app.on_message(filters.regex(r"^🎮 Viktorina$"))
+async def quiz_start(client, message: Message):
+    q = random.choice([
+        {"q": "Qur'onda nechta sura bor?", "opt": ["110", "114", "120"], "ans": "114"}, 
+        {"q": "Eng birinchi nozil bo'lgan sura?", "opt": ["Fotiha", "Alaq", "Nos"], "ans": "Alaq"}
+    ])
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton(o, callback_data=f"quiz:{o}:{q['ans']}")] for o in q['opt']])
+    await message.reply(f"🎮 **Viktorina**\n\n{q['q']}", reply_markup=kb)
+
+@app.on_message(filters.regex(r"^📚 Diniy ma'rifiy$"))
+async def ilmiy_menu_show(client, message: Message):
+    await message.reply("📚 **Bo'limni tanlang:**", reply_markup=ilmiy_menu())
+
+@app.on_message(filters.regex(r"^🔍 Qidiruv tizimi$"))
+async def search_start(client, message: Message):
+    USER_STATES[message.from_user.id] = "search"
+    await message.reply("🔍 **Qidiruv**\n\nSo'zni yozing (masalan: *sabr*, *jannat*).")
 
 # ==========================================
 # --- INLINE / CALLBACK HANDLERLARI ---
@@ -386,16 +348,6 @@ async def handle_location(client, message: Message):
 async def select_reciter(client, callback_query: CallbackQuery):
     reciter_name = callback_query.data.split(":")[1]
     await callback_query.message.edit_text(f"🎧 **{reciter_name}**", reply_markup=surahs_menu(reciter_name, 0))
-
-@app.on_callback_query(filters.regex(r"^reciter_page:"))
-async def reciter_page(client, callback_query: CallbackQuery):
-    page = int(callback_query.data.split(":")[1])
-    await callback_query.message.edit_reply_markup(reply_markup=reciters_menu(page))
-
-@app.on_callback_query(filters.regex(r"^surah_page:"))
-async def surah_page(client, callback_query: CallbackQuery):
-    _, reciter_name, page = callback_query.data.split(":")
-    await callback_query.message.edit_reply_markup(reply_markup=surahs_menu(reciter_name, int(page)))
 
 @app.on_callback_query(filters.regex(r"^surah:"))
 async def send_audio(client, callback_query: CallbackQuery):
@@ -413,7 +365,7 @@ async def send_audio(client, callback_query: CallbackQuery):
         await client.send_audio(callback_query.from_user.id, audio=temp_file, title=f"{surah_num}-sura", performer=reciter_name)
         await callback_query.message.delete()
     except Exception as e:
-        await callback_query.message.edit_text(f"❌ Xato: Audio yuklab bo'lmadi.")
+        await callback_query.message.edit_text(f"❌ Xato: {str(e)}")
     finally:
         if os.path.exists(temp_file): os.remove(temp_file)
 
@@ -421,9 +373,7 @@ async def send_audio(client, callback_query: CallbackQuery):
 async def send_duo(client, callback_query: CallbackQuery):
     key = callback_query.data.split(":")[1]
     duo = DUOLAR.get(key)
-    if not duo: return await callback_query.answer("Duo topilmadi.", show_alert=True)
-    
-    text = f"**{duo['nomi']}**\n\n**{duo['arabcha']}**\n\n**O'qilishi:** {duo['oqilishi']}\n\n**Ma'nosi:** {duo['tarjima']}\n\n**Manba:** {duo['manba']}"
+    text = f"**{duo['nomi']}**\n\n**{duo['arabcha']}**\n\n**O'qilishi:** {duo['oqilishi']}\n\n**Ma'nosi:** {duo['tarjima']}"
     fav_id = str(uuid.uuid4())
     TEMP_FAV[fav_id] = f"{duo['nomi']} - {duo['tarjima']}"
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:duo:{fav_id}")], [InlineKeyboardButton("⬅️ Orqaga", callback_data="duo_back")]])
@@ -444,7 +394,7 @@ async def save_favorite(client, callback_query: CallbackQuery):
         await callback_query.answer("⭐ Saqlandi!", show_alert=True)
         await callback_query.message.edit_reply_markup(reply_markup=None)
     else:
-        await callback_query.answer("Xatolik: Ma'lumot eskirgan.", show_alert=True)
+        await callback_query.answer("Xatolik: Ma'lumot topilmadi.", show_alert=True)
 
 @app.on_callback_query(filters.regex(r"^tasbeh_select:"))
 async def tasbeh_select(client, callback_query: CallbackQuery):
@@ -458,78 +408,79 @@ async def tasbeh_add(client, callback_query: CallbackQuery):
     TASBEH_COUNTS[callback_query.from_user.id] = TASBEH_COUNTS.get(callback_query.from_user.id, 0) + 1
     await callback_query.message.edit_text(f"📿 **Zikr:** {TASBEH_DHIKRS[index]}\n\n*Sanoq: {TASBEH_COUNTS[callback_query.from_user.id]}*", reply_markup=tasbeh_counter_menu(index, TASBEH_COUNTS[callback_query.from_user.id]))
 
-@app.on_callback_query(filters.regex(r"^tasbeh_reset:"))
-async def tasbeh_reset(client, callback_query: CallbackQuery):
-    index = int(callback_query.data.split(":")[1])
-    TASBEH_COUNTS[callback_query.from_user.id] = 0
-    await callback_query.message.edit_text(f"📿 **Zikr:** {TASBEH_DHIKRS[index]}\n\n*Sanoq: 0*", reply_markup=tasbeh_counter_menu(index, 0))
-
-@app.on_callback_query(filters.regex(r"^tasbeh_back$"))
-async def tasbeh_back(client, callback_query: CallbackQuery):
-    await callback_query.message.edit_text("📿 **Raqamli Tasbeh**\n\nQaysi zikrni ayta olmaysiz? Ro'yxatdan tanlang:", reply_markup=tasbeh_dhikrs_menu())
+@app.on_callback_query(filters.regex(r"^quiz:"))
+async def quiz_answer(client, callback_query: CallbackQuery):
+    _, chosen, correct = callback_query.data.split(":")
+    if chosen == correct:
+        await callback_query.answer("✅ To'g'ri!", show_alert=True)
+    else:
+        await callback_query.answer(f"❌ Xato! To'g'risi: {correct}", show_alert=True)
 
 @app.on_callback_query(filters.regex(r"^ilmiy:"))
 async def ilmiy_show(client, callback_query: CallbackQuery):
     q = callback_query.data.split(":")[1]
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="ilmiy:back")]])
-    
-    if q == "siyrat": text = SIYRAT_TEXT
-    elif q == "ramazon": text = f"**🌙 Ramazon**\n\n{RAMAZON_TEXT}\n\n{ramazon_days_left()}"
-    elif q == "tahorat": text = TAHORAT_TEXT
-    elif q == "ismlar": 
-        text = "**🌟 Allohning 99 ismi**"
-        kb = names_menu(0)
-    else: 
-        text = "📚 **Bo'limni tanlang:**"
-        kb = ilmiy_menu()
-        
-    if len(text) > 4000:
-        # Agar matn juda uzun bo'lsa bo'lib yuborish kerak, lekin hozircha qisqartiramiz
-        text = text[:4000] + "..."
-        
+    if q == "siyrat": text = "**🕋 Payg'ambar siyrati**\n\nMuhammad (s.a.v) 570-yilda Makkada tug'ilganlar..."
+    elif q == "ramazon": text = f"**🌙 Ramazon**\n\n{ramazon_days_left()}"
+    elif q == "tahorat": text = "**💧 Tahorat**\n\n[Video darslik](https://youtu.be/tahorat)"
+    elif q == "ismlar": text = "**🌟 99 ism**"; kb = names_menu(0)
+    else: text = "📚 Bo'limni tanlang:"; kb = ilmiy_menu()
     await callback_query.message.edit_text(text, reply_markup=kb)
-
-@app.on_callback_query(filters.regex(r"^name_page:"))
-async def name_page(client, callback_query: CallbackQuery):
-    page = int(callback_query.data.split(":")[1])
-    await callback_query.message.edit_reply_markup(reply_markup=names_menu(page))
 
 @app.on_callback_query(filters.regex(r"^name:"))
 async def show_name(client, callback_query: CallbackQuery):
     idx = int(callback_query.data.split(":")[1])
-    if idx >= len(ALL_NAMES): return await callback_query.answer("Topilmadi.")
     name, meaning, tafsir = ALL_NAMES[idx]
     await callback_query.message.edit_text(f"🌟 **{name}**\n\n**Ma'nosi:** {meaning}\n\n**Tafsiri:** {tafsir}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="ilmiy:ismlar")]]))
 
-# --- VIKTORINA ---
-@app.on_callback_query(filters.regex(r"^quiz_start:"))
-async def quiz_start(client, callback_query: CallbackQuery):
-    q_type = callback_query.data.split(":")[1]
-    if q_type == "tarix": questions = TARIX_QUESTIONS
-    elif q_type == "hadis": questions = HADIS_QUESTIONS
-    elif q_type == "quron": questions = QURON_QUESTIONS
-    elif q_type == "shariat": questions = SHARIAT_QUESTIONS
-    else: return await callback_query.answer("Mavzu topilmadi.")
-
-    q = random.choice(questions)
-    # Variantlarni aralashtirish
-    opts = q['options'][:]
-    random.shuffle(opts)
+# ==========================================
+# --- QIDIRUV HANDLERI ---
+# ==========================================
+@app.on_message(filters.text & filters.private & ~filters.regex(r"^/"))
+async def handle_search_input(client, message: Message):
+    if USER_STATES.get(message.from_user.id) != "search":
+        return 
+        
+    text = message.text.strip()
     
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton(o, callback_data=f"quiz_ans:{q['answer']}:{o}")] for o in opts])
-    await callback_query.message.edit_text(f"🎮 **Viktorina**\n\n{q['q']}", reply_markup=kb)
+    # QIDIRUVDAN CHIQISH: Agar foydalanuvchi menyu tugmalarini bossa, qidiruvni to'xtatib, o'sha bo'limga o'tadi
+    menu_keywords = ["Namoz vaqtlari", "Qibla yo'nalishi", "Qorilar", "Duolar", "Tasbeh", "oyat", "hadis", "Sevimlilar", "Viktorina", "Qidiruv", "ma'rifiy", "Sozlamalar", "Lokatsiya", "Eslatma"]
+    if any(keyword in text for keyword in menu_keywords):
+        USER_STATES[message.from_user.id] = None
+        return # Boshqa handlerlar o'zi ishlaydi
 
-@app.on_callback_query(filters.regex(r"^quiz_ans:"))
-async def quiz_answer(client, callback_query: CallbackQuery):
-    _, correct, chosen = callback_query.data.split(":")
-    if chosen == correct:
-        await callback_query.answer("✅ To'g'ri javob!", show_alert=True)
-    else:
-        await callback_query.answer(f"❌ Xato! To'g'ri javob: {correct}", show_alert=True)
+    USER_STATES[message.from_user.id] = None 
+    msg = await message.reply("⏳ Qidirilmoqda...")
+    
+    try:
+        encoded_text = urllib.parse.quote(text)
+        url = f"https://api.alquran.cloud/v1/search/{encoded_text}/all/uz.sodik"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
+                if data["code"] == 200 and data["data"]["count"] > 0:
+                    res = f"🔍 **'{text}' so'zi bo'yicha natijalar:**\n\n"
+                    for match in data["data"]["matches"][:5]:
+                        res += f"📖 **{match['surah']['name']} {match['numberInSurah']}-oyat:**\n_{match['text']}_\n\n"
+                    await msg.edit_text(res, reply_markup=main_menu(False))
+                else:
+                    await msg.edit_text(f"❌ Kechirasiz, '{text}' so'zi bo'yicha hech narsa topilmadi.", reply_markup=main_menu(False))
+    except Exception as e:
+        await msg.edit_text("❌ Qidiruvda xatolik yuz berdi.", reply_markup=main_menu(False))
 
 # ==========================================
-# --- ISHGA TUSHIRISH ---
+# --- ESLATMALAR VA ASOSIY LOOP ---
 # ==========================================
+@app.on_message(filters.regex(r"^(🔔 Eslatmani yoqish|🔕 Eslatmani o'chirish)$"))
+async def toggle_reminders(client, message: Message):
+    cursor.execute("SELECT reminders FROM users WHERE user_id = ?", (message.from_user.id,))
+    user = cursor.fetchone()
+    if not user: return await message.reply("Iltimos, avval lokatsiya yuboring.")
+    new_status = 0 if user[0] == 1 else 1
+    cursor.execute("UPDATE users SET reminders = ? WHERE user_id = ?", (new_status, message.from_user.id))
+    conn.commit()
+    await message.reply("✅ Namoz eslatmalari yoqildi." if new_status == 1 else "🔕 Namoz eslatmalari o'chirildi.", reply_markup=main_menu(new_status == 1))
+
 async def main():
     print("Bot muvaffaqiyatli ishga tushdi...")
     await app.start()
