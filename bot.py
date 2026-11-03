@@ -20,6 +20,7 @@ try:
     from hadiths_data import HADITHS
 except ImportError:
     print("XATOLIK: 'hadiths_data.py' fayli topilmadi yoki ichida HADITHS ro'yxati yo'q!")
+    print("Iltimos, GitHub'da hadiths_data.py faylini yarating va ichiga hadislarni yozing.")
     HADITHS = ["Iltimos, hadiths_data.py faylini yarating va unga 500 ta hadisni kiriting."]
 
 # --- SOZLAMALAR ---
@@ -80,7 +81,7 @@ DUOLAR = {
 # --- ALLOHNING 99 ISMI ---
 ALL_NAMES = [
     ("Ar-Rahman", "Rahmli", "Allohning cheksiz rahm-shafqati va marhamati barcha yaratilganlarga qamrab oladi."),
-    ("Ar-Rahim", "Mehribon", "Allohning mo'minlarga bo'lgan alohida rahmrati va ularni jannat bilan mukofotlashi."),
+    ("Ar-Rahim", "Mehribon", "Allohning mo'minlarga bo'lgan alohida rahmati va ularni jannat bilan mukofotlashi."),
     ("Al-Malik", "Podsho", "Alloh butun olamning yagona egasi va hukmdori."),
     ("Al-Quddus", "Muqaddas", "Alloh har qanday kamchilikdan pok va mukammaldir."),
     ("As-Salam", "Tinchlik", "Alloh tinchlik manbai va bandalarini xavfsizlikka yetaklaydi."),
@@ -94,6 +95,7 @@ ALL_NAMES = [
     ("Al-Musawwir", "Shakl beruvchi", "Alloh yaratilganlarga chiroyli va mos shakl bergan."),
     ("Al-Ghaffar", "Kechiruvchi", "Alloh bandalarining gunohlarini ko'p marta kechiradi."),
     ("Al-Qahhar", "G'olib", "Alloh barcha narsadan ustun va g'olibdir.")
+    # Qolgan 84 tasini shu yerga qo'shishingiz mumkin
 ]
 
 # --- QORILAR ---
@@ -126,8 +128,7 @@ SURA_NAMES = ["Fotiha", "Baqara", "Oli Imron", "Niso", "Moida", "An'om", "A'rof"
 async def fetch_prayer_times(lat: float, lon: float) -> dict:
     url = "https://api.aladhan.com/v1/timings"
     params = {"latitude": lat, "longitude": lon, "method": 3}
-    timeout = aiohttp.ClientTimeout(total=15) # Qotib qolmasligi uchun vaqt chegarasi
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params) as resp:
             data = await resp.json()
             return data["data"]["timings"]
@@ -240,41 +241,31 @@ async def handle_location(client, message: Message):
     conn.commit()
     await message.reply("✅ Lokatsiya saqlandi!", reply_markup=main_menu(False))
 
-# ==========================================
-# TUZATILGAN QISM: EMojisiz matn orqali ushlash
-# ==========================================
+# =========================================================================
+# TUZATILGAN JOY: Faqat shu ikki funksiyadagi emoji va baza tekshiruvi o'zgardi
+# =========================================================================
 @app.on_message(filters.regex(r"Namoz vaqtlari"))
 async def get_times(client, message: Message):
+    USER_STATES[message.from_user.id] = None
     cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
     user = cursor.fetchone()
-    
-    # Lokatsiya bazada bo'sh (None) bo'lsa, xato bermasligi uchun tekshiruv
-    if not user or user[0] is None or user[1] is None: 
-        return await message.reply("Iltimos, avval pastdagi **'📍 Lokatsiyani yangilash'** tugmasini bosib, lokatsiya yuboring.")
-    
+    if not user or user[0] is None or user[1] is None: return await message.reply("Iltimos, avval pastdagi '📍 Lokatsiyani yangilash' tugmasini bosib, lokatsiya yuboring.")
     msg = await message.reply("⏳ Hisoblanmoqda...")
     try:
         timings = await fetch_prayer_times(user[0], user[1])
         text = f"🕌 **Bugungi namoz vaqtlari**\n\n" + "\n".join([f"• {label}: **{timings[name]}**" for name, label in [("Fajr", "Bomdod"), ("Dhuhr", "Peshin"), ("Asr", "Asr"), ("Maghrib", "Shom"), ("Isha", "Xufton")]])
         await msg.edit_text(text)
-    except Exception as e: 
-        await msg.edit_text(f"❌ Xatolik: API server javob bermayapti. Internet aloqasini tekshiring.")
+    except Exception as e: await msg.edit_text(f"❌ Xatolik: {e}")
 
 @app.on_message(filters.regex(r"Qibla yo'nalishi"))
 async def get_qibla(client, message: Message):
+    USER_STATES[message.from_user.id] = None
     cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
     user = cursor.fetchone()
-    
-    # Lokatsiya bazada bo'sh (None) bo'lsa, xato bermasligi uchun tekshiruv
-    if not user or user[0] is None or user[1] is None: 
-        return await message.reply("Iltimos, avval pastdagi **'📍 Lokatsiyani yangilash'** tugmasini bosib, lokatsiya yuboring.")
-        
-    try:
-        degree = calculate_qibla(user[0], user[1])
-        await message.reply(f"🧭 **Qibla yo'nalishi:** **{degree:.1f}°**")
-    except Exception:
-        await message.reply("❌ Hisoblashda xatolik yuz berdi.")
-# ==========================================
+    if not user or user[0] is None or user[1] is None: return await message.reply("Iltimos, avval pastdagi '📍 Lokatsiyani yangilash' tugmasini bosib, lokatsiya yuboring.")
+    degree = calculate_qibla(user[0], user[1])
+    await message.reply(f"🧭 **Qibla yo'nalishi:** **{degree:.1f}°**")
+# =========================================================================
 
 @app.on_message(filters.regex(r"^🎧 Qorilar va qiroatlar$"))
 async def show_reciters(client, message: Message):
@@ -307,10 +298,14 @@ async def get_ayah(client, message: Message):
 
 @app.on_message(filters.regex(r"^📜 Kunlik hadis$"))
 async def get_hadith(client, message: Message):
+    # Hadisni hadiths_data.py faylidan tasodifiy tanlaymiz
     hadith_text = random.choice(HADITHS)
+    
     text = f"📜 **Hadis**\n\n_{hadith_text}_"
+    
     fav_id = str(uuid.uuid4())
     TEMP_FAV[fav_id] = text
+    
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:hadis:{fav_id}")]])
     await message.reply(text, reply_markup=kb)
 
@@ -440,15 +435,7 @@ async def show_name(client, callback_query: CallbackQuery):
 async def handle_search_input(client, message: Message):
     if USER_STATES.get(message.from_user.id) != "search":
         return 
-        
     text = message.text.strip()
-    
-    # QIDIRUVDAN CHIQISH: Agar foydalanuvchi menyu tugmalarini bossa, qidiruvni to'xtatib, o'sha bo'limga o'tadi
-    menu_keywords = ["Namoz vaqtlari", "Qibla yo'nalishi", "Qorilar", "Duolar", "Tasbeh", "oyat", "hadis", "Sevimlilar", "Viktorina", "Qidiruv", "ma'rifiy", "Sozlamalar", "Lokatsiya", "Eslatma"]
-    if any(keyword in text for keyword in menu_keywords):
-        USER_STATES[message.from_user.id] = None
-        return # Boshqa handlerlar o'zi ishlaydi
-
     USER_STATES[message.from_user.id] = None 
     msg = await message.reply("⏳ Qidirilmoqda...")
     
