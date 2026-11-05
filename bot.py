@@ -160,7 +160,7 @@ def names_menu(page=0):
 async def load_reciters_from_github():
     global RECITERS
     # SIZNING GITHUB HAVOLANGIZ (Rasmdan olindi)
-    github_url = "https://raw.githubusercontent.com/alisher0409/Namoz-bot/main/reciters.json"
+    github_url = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/reciters.json"
     
     try:
         async with aiohttp.ClientSession() as session:
