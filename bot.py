@@ -164,10 +164,11 @@ async def load_reciters_from_github():
     github_url = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/reciters.json"
     
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(github_url, timeout=10) as resp:
-                if resp.status == 200:
-                    RECITERS = await resp.json()
+       async with aiohttp.ClientSession() as session:
+    async with session.get(github_url, timeout=10) as resp:
+        if resp.status == 200:
+            text_data = await resp.text() # Matn ko'rinishida o'qiymiz
+            RECITERS = json.loads(text_data) # O'zimiz JSON ga aylantiramiz 
                     print(f"✅ GitHub'dan {len(RECITERS)} ta qori yuklandi!")
                 else:
                     print("❌ GitHub'dan yuklashda xatolik. Status:", resp.status)
