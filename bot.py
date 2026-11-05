@@ -430,7 +430,70 @@ async def show_weekly_top(client, message: Message):
         text += f"{medal} {row[0]} — **{row[1]} ball**\n"
         
     await message.reply(text)
-    # --- CALLBACK HANDLERLAR ---
+    "
+    for fav in favs: text += f"• {fav[0][:100]}...\n\n"
+    await message.reply(text)
+
+@app.on_message(filters.regex(r"^📚 Diniy ma'rifiy$"))
+async def ilmiy_menu_show(client, message: Message): 
+    USER_STATES[message.from_user.id] = None
+    await message.reply("📚 **Bo'limni tanlang:**", reply_markup=ilmiy_menu())
+
+# --- QIDIRUV TIZIMI ---
+async def show_search_result(message_or_cb, user_id: int, is_edit=False):
+    cache = SEARCH_CACHE.get(user_id)
+    if not cache or not cache["results"]: return
+    idx = cache["idx"]
+    total = len(cache["results"])
+    surah_num, ayah_num, uzbek_text = cache["results"][idx]
+    surah_name = SURA_NAMES[surah_num - 1] if 1 <= surah_num <= 114 else f"{surah_num}-sura"
+    text = f"🔍 **'{cache['query']}' so'zi bo'yicha natija:**\n\n📖 **{surah_name} surasi, {ayah_num}-oyat:**\n_{uzbek_text}_\n\n"
+    fav_id = str(uuid.uuid4())
+    TEMP_FAV[fav_id] = f"📖 {surah_name} surasi, {ayah_num}-oyat:\n{uzbek_text}"
+    save_btn = [InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:search:{fav_id}")]
+    nav = []
+    if idx > 0: nav.append(InlineKeyboardButton("⬅️ Oldingi", callback_data="search_page:prev"))
+    nav.append(InlineKeyboardButton(f"{idx+1}/{total}", callback_data="noop"))
+    if idx < total - 1: nav.append(InlineKeyboardButton("Keyingi ➡️", callback_data="search_page:next"))
+    kb = InlineKeyboardMarkup([save_btn, nav])
+    if is_edit: await message_or_cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+    else: await message_or_cb.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+
+@app.on_callback_query(filters.regex(r"^search_page:"))
+async def search_pagination(client, callback_query: CallbackQuery):
+    action = callback_query.data.split(":")[1]
+    user_id = callback_query.from_user.id
+    cache = SEARCH_CACHE.get(user_id)
+    if not cache: return await callback_query.answer("Qidiruv natijasi eskirgan. Qaytadan qidiring.", show_alert=True)
+    if action == "next" and cache["idx"] < len(cache["results"]) - 1: cache["idx"] += 1
+    elif action == "prev" and cache["idx"] > 0: cache["idx"] -= 1
+    await callback_query.answer()
+    await show_search_result(callback_query, user_id, is_edit=True)
+
+@app.on_message(filters.regex(r"^🔍 Qidiruv tizimi$"))
+async def search_start(client, message: Message):
+    USER_STATES[message.from_user.id] = "search"
+    await message.reply("🔍 **Qidiruv rejimi yoqildi.**\n\nKetma-ket qidiruv uchun so'zlarni yozib yuboraverasiz. Qidiruvdan chiqish uchun boshqa bo'limni tanlang yoki /start bosing.")
+
+@app.on_message(filters.text & filters.private & ~filters.regex(r"^/"))
+async def handle_search_input(client, message: Message):
+    if USER_STATES.get(message.from_user.id) != "search": return
+    text = message.text.strip()
+    msg = await message.reply("⏳ Qur'on ichidan qidirilmoqda...")
+    try:
+        search_query = f"%{text.lower()}%"
+        quran_cursor = quran_conn.cursor()
+        quran_cursor.execute("SELECT surah_num, ayah_num, uzbek FROM quran WHERE LOWER(uzbek) LIKE ? LIMIT 50", (search_query,))
+        results = quran_cursor.fetchall()
+        if results:
+            SEARCH_CACHE[message.from_user.id] = {"results": results, "idx": 0, "query": text}
+            await show_search_result(msg, message.from_user.id)
+        else:
+            await msg.edit_text(f"❌ Kechirasiz, '{text}' so'zi bo'yicha hech narsa topilmadi.\n\nYana boshqa so'z yozib ko'rishingiz mumkin.")
+    except Exception as e:
+        print(f"Qidiruv xatosi: {e}")
+        await msg.edit_text("❌ Qidiruvda xatolik yuz berdi.")
+# --- CALLBACK HANDLERLAR ---
 @app.on_callback_query(filters.regex(r"^reciter:"))
 async def select_reciter(client, callback_query: CallbackQuery):
     reciter_name = callback_query.data.split(":", 1)[1]
@@ -696,7 +759,7 @@ async def toggle_reminders(client, message: Message):
     await message.reply("✅ Namoz eslatmalari yoqildi." if new_status == 1 else "🔕 Namoz eslatmalari o'chirildi.", reply_markup=main_menu(new_status == 1))
 
 # =====================================================================
-# --- ENG PASTDAGI HANDLERLAR (QIDIRUV BILAN ARALASHMASLIGI UCHUN) ---
+# --- ENG PASTDAGI HANDLERLAR (Siz yuborgan o'sha kod) ---
 # =====================================================================
 
 @app.on_message(filters.location)
@@ -704,60 +767,30 @@ async def handle_location(client, message: Message):
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (message.from_user.id,))
     cursor.execute("UPDATE users SET lat = ?, lon = ? WHERE user_id = ?", (message.location.latitude, message.location.longitude, message.from_user.id))
     conn.commit()
-    
-    state = USER_STATES.get(message.from_user.id)
-    USER_STATES[message.from_user.id] = None
-    
-    if state == "waiting_loc_namoz":
-        await message.reply("✅ Lokatsiya saqlandi. Namoz vaqtlari hisoblanmoqda...")
-        await get_times(client, message)
-    elif state == "waiting_loc_qibla":
-        await message.reply("✅ Lokatsiya saqlandi. Qibla aniqlanmoqda...")
-        await get_qibla(client, message)
-    else:
-        await message.reply("✅ Lokatsiya saqlandi!", reply_markup=main_menu(False))
+    await message.reply("✅ Lokatsiya saqlandi!", reply_markup=main_menu(False))
 
 @app.on_message(filters.regex(r"^🕌 Namoz vaqtlari$"))
 async def get_times(client, message: Message):
+    USER_STATES[message.from_user.id] = None
     cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
     user = cursor.fetchone()
-    
-    if not user or user[0] is None or user[1] is None:
-        USER_STATES[message.from_user.id] = "waiting_loc_namoz"
-        kb = ReplyKeyboardMarkup([[KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)], [KeyboardButton("⬅️ Orqaga")]], resize_keyboard=True)
-        return await message.reply("Namoz vaqtlarini aniqlash uchun iltimos, lokatsiyangizni yuboring:", reply_markup=kb)
-        
+    if not user or not user[0]: return await message.reply("Iltimos, avval lokatsiya yuboring.")
     msg = await message.reply("⏳ Hisoblanmoqda...")
-    timings = await fetch_prayer_times(user[0], user[1])
-    
-    if not timings:
-        return await msg.edit_text("❌ API bilan aloqa yo'q. Iltimos, VPN yoqing yoki keyinroq urinib ko'ring.")
-        
     try:
+        timings = await fetch_prayer_times(user[0], user[1])
         text = f"🕌 **Bugungi namoz vaqtlari**\n\n" + "\n".join([f"• {label}: **{timings[name]}**" for name, label in [("Fajr", "Bomdod"), ("Dhuhr", "Peshin"), ("Asr", "Asr"), ("Maghrib", "Shom"), ("Isha", "Xufton")]])
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("📍 Lokatsiyani yangilash", callback_data="update_location")]])
-        await msg.edit_text(text, reply_markup=kb)
+        await msg.edit_text(text)
     except Exception as e: 
         await msg.edit_text(f"❌ Xatolik: {e}")
 
 @app.on_message(filters.regex(r"^🧭 Qibla yo'nalishi$"))
 async def get_qibla(client, message: Message):
+    USER_STATES[message.from_user.id] = None
     cursor.execute("SELECT lat, lon FROM users WHERE user_id = ?", (message.from_user.id,))
     user = cursor.fetchone()
-    
-    if not user or user[0] is None or user[1] is None:
-        USER_STATES[message.from_user.id] = "waiting_loc_qibla"
-        kb = ReplyKeyboardMarkup([[KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)], [KeyboardButton("⬅️ Orqaga")]], resize_keyboard=True)
-        return await message.reply("Qibla yo'nalishini aniqlash uchun iltimos, lokatsiyangizni yuboring:", reply_markup=kb)
-        
+    if not user or not user[0]: return await message.reply("Iltimos, avval lokatsiya yuboring.")
     degree = calculate_qibla(user[0], user[1])
-    direction = get_direction_name(degree)
-    
-    text = f"🧭 **Qibla yo'nalishi:**\n\nBurchak: **{degree:.1f}°**\nYo'nalish: **{direction}**\n\n📍 *Telefoningizdagi kompasni ochib, Shimolni toping va {degree:.1f}° burchakka yuzlaning.*"
-    maps_url = "https://www.google.com/maps/dir/?api=1&destination=21.4225,39.8262"
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("🗺 Xaritada ko'rish", url=maps_url)], [InlineKeyboardButton("📍 Lokatsiyani yangilash", callback_data="update_location")]])
-    
-    await message.reply(text, reply_markup=kb, disable_web_page_preview=True)
+    await message.reply(f"🧭 **Qibla yo'nalishi:** **{degree:.1f}°**")
 
 # --- ASOSIY LOOP ---
 async def main():
