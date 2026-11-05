@@ -429,7 +429,7 @@ async def show_weekly_top(client, message: Message):
         medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
         text += f"{medal} {row[0]} — **{row[1]} ball**\n"
         
-            await message.reply(text)
+    await message.reply(text)
 
 @app.on_message(filters.regex(r"^📚 Diniy ma'rifiy$"))
 async def ilmiy_menu_show(client, message: Message): 
