@@ -697,11 +697,19 @@ namoz_kb = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-@app.on_message(filters.command("namoz") | filters.regex(r"^🕌 Namoz vaqtlari$"))
+# Matn orqali ushlash (Regex xatolarini oldini oladi)
+@app.on_message(filters.text & filters.private, group=-1)
+async def namoz_qibla_text_catch(client, message: Message):
+    if "Namoz vaqtlari" in message.text:
+        await message.reply("📍 Namoz vaqtlarini bilish uchun joylashuvingizni yuboring:", reply_markup=namoz_kb)
+    elif "Qibla yo'nalishi" in message.text:
+        await message.reply("🧭 Qibla yo'nalishini bilish uchun joylashuvni yuboring:", reply_markup=namoz_kb)
+
+@app.on_message(filters.command("namoz"))
 async def namoz_cmd(client, message: Message):
     await message.reply("📍 Namoz vaqtlarini bilish uchun joylashuvingizni yuboring:", reply_markup=namoz_kb)
 
-@app.on_message(filters.command("qibla") | filters.regex(r"^🧭 Qibla yo'nalishi$"))
+@app.on_message(filters.command("qibla"))
 async def qibla_cmd(client, message: Message):
     await message.reply("🧭 Qibla yo'nalishini bilish uchun joylashuvni yuboring:", reply_markup=namoz_kb)
 
@@ -710,14 +718,14 @@ async def namoz_qibla_handler(client, message: Message):
     lat = message.location.latitude
     lon = message.location.longitude
 
-    # Lokatsiyani bazaga saqlash (eslatmalar uchun kerak bo'ladi)
+    # Lokatsiyani bazaga saqlash
     cursor.execute("INSERT OR REPLACE INTO users (user_id, lat, lon) VALUES (?, ?, ?)", (message.from_user.id, lat, lon))
     conn.commit()
 
     msg = await message.reply("⏳ Hisoblanmoqda...")
 
     try:
-        # Sizning kodingizdagi API funksiyasini chaqiramiz
+        # API funksiyasini chaqiramiz
         times = await fetch_prayer_times(lat, lon)
         
         if not times:
