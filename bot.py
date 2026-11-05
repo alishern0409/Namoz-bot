@@ -695,47 +695,49 @@ async def toggle_reminders(client, message: Message):
     conn.commit()
     await message.reply("✅ Namoz eslatmalari yoqildi." if new_status == 1 else "🔕 Namoz eslatmalari o'chirildi.", reply_markup=main_menu(new_status == 1))
 
-# =====================================================================
-# --- ENG PASTDAGI HANDLERLAR (QIDIRUV BILAN ARALASHMASLIGI UCHUN) ---
-# =====================================================================
+# ===== NAMOZ VAQTI VA QIBLA =====
 
-@dp.message(Command("start"))
-async def start_handler(message: Message):
-    await message.answer(
-        "Assalomu alaykum! 👋\n"
-        "Namoz vaqtlari va qibla yo'nalishini bilish uchun pastdagi tugma orqali joylashuvingizni yuboring.",
-        reply_markup=location_keyboard
-    )
+namoz_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="📍 Joylashuvni yuborish", request_location=True)]],
+    resize_keyboard=True
+)
 
-@dp.message(lambda message: message.location is not None)
-async def location_handler(message: Message):
+@dp.message(Command("namoz"))
+async def namoz_cmd(message: types.Message):
+    await message.answer("📍 Joylashuvingizni yuboring:", reply_markup=namoz_kb)
+
+@dp.message(Command("qibla"))
+async def qibla_cmd(message: types.Message):
+    await message.answer("🧭 Qibla yo'nalishini bilish uchun joylashuvni yuboring:", reply_markup=namoz_kb)
+
+@dp.message(F.location)
+async def namoz_qibla_handler(message: types.Message):
     lat = message.location.latitude
     lon = message.location.longitude
 
     try:
-        # Namoz vaqtlarini hisoblash (Hanafiy mazhabi bo'yicha)
         pt = PrayerTimes(latitude=lat, longitude=lon, method="MWL")
-        times = pt.get_times()
+        t = pt.get_times()
 
-        # Qibla yo'nalishini hisoblash
+        def g(key):
+            return t.get(key) if isinstance(t, dict) else getattr(t, key, "—")
+
         qibla = qibla_direction(lat, lon)
 
-        # Javobni shakllantirish
         text = (
-            f"🕌 **Namoz vaqtlari** (Joylashuvingiz bo'yicha):\n\n"
-            f"🌅 **Bomdod (Fajr):** {times['Fajr']}\n"
-            f"☀️ **Peshin (Dhuhr):** {times['Dhuhr']}\n"
-            f"🌤 **Asr:** {times['Asr']}\n"
-            f"🌇 **Shom (Maghrib):** {times['Maghrib']}\n"
-            f"🌙 **Xufton (Isha):** {times['Isha']}\n\n"
-            f"🧭 **Qibla yo'nalishi:** {qibla:.1f}° (Shimolga nisbatan)\n\n"
-            f"📍 Koordinatalar: {lat:.4f}, {lon:.4f}"
+            f"🕌 <b>Namoz vaqtlari</b>\n\n"
+            f"🌅 Bomdod: <b>{g('Fajr')}</b>\n"
+            f"☀️ Peshin: <b>{g('Dhuhr')}</b>\n"
+            f"🌤 Asr: <b>{g('Asr')}</b>\n"
+            f"🌇 Shom: <b>{g('Maghrib')}</b>\n"
+            f"🌙 Xufton: <b>{g('Isha')}</b>\n\n"
+            f"🧭 <b>Qibla:</b> {qibla:.1f}° (shimolga nisbatan)\n"
+            f"📍 {lat:.4f}, {lon:.4f}"
         )
-        await message.answer(text, parse_mode="Markdown")
+        await message.answer(text, parse_mode="HTML")
 
     except Exception as e:
-        await message.answer(f"Xatolik yuz berdi: {str(e)}")
-
+        await message.answer(f"⚠️ Xatolik: {e}")
 # --- ASOSIY LOOP ---
 async def main():
     print("Bot muvaffaqiyatli ishga tushdi...")
