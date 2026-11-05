@@ -20,7 +20,7 @@ from pyrogram.enums import ChatMemberStatus, ChatType
 # --- ADHANPY (OFFLINE NAMOZ VAQTI) ---
 from adhanpy.PrayerTimes import PrayerTimes
 from adhanpy.calculation import CalculationMethod
-from adhanpy.location import Coordinates
+from adhanpy.models import Coordinates 
 
 # --- AVTOMATIK TUZATUVCHI KOD ---
 quiz_files = ["quiz_tarix.py", "quiz_hadis.py", "quiz_quron.py", "quiz_shariat.py"]
