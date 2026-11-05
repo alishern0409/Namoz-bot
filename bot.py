@@ -148,12 +148,23 @@ def names_menu(page=0):
 async def fetch_prayer_times(lat: float, lon: float) -> dict:
     url = "https://api.aladhan.com/v1/timings"
     params = {"latitude": lat, "longitude": lon, "method": 3}
-    try:
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+    
+    async def _fetch():
+        # Ba'zi serverlarda SSL xatolik berishini oldini olish uchun
+        connector = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(url, params=params) as resp:
-                data = await resp.json()
-                return data["data"]["timings"]
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data["data"]["timings"]
+                return None
+
+    try:
+        # Qat'iy vaqt chegarasi: agar 7 soniyada javob kelmasa, uzib tashlaydi
+        return await asyncio.wait_for(_fetch(), timeout=7.0)
+    except asyncio.TimeoutError:
+        print("❌ API javob bermadi (Timeout)")
+        return None
     except Exception as e:
         print(f"❌ API XATOSI: {e}")
         return None
@@ -1020,20 +1031,17 @@ async def namoz_qibla_handler(client, message: Message):
     lat = message.location.latitude
     lon = message.location.longitude
 
-    # Lokatsiyani bazaga saqlash
     cursor.execute("INSERT OR REPLACE INTO users (user_id, lat, lon) VALUES (?, ?, ?)", (message.from_user.id, lat, lon))
     conn.commit()
 
-    msg = await message.reply("⏳ Hisoblanmoqda...")
+    msg = await message.reply("⏳ Hisoblanmoqda... (biroz kuting)")
 
     try:
-        # API funksiyasini chaqiramiz
         times = await fetch_prayer_times(lat, lon)
         
         if not times:
-            return await msg.edit_text("❌ Namoz vaqtlarini olishda xatolik yuz berdi. Iltimos keyinroq qayta urinib ko'ring.")
+            return await msg.edit_text("❌ Namoz vaqtlarini olishda xatolik yuz berdi. Serverda internet sekin yoki API javob bermayapti. Iltimos keyinroq qayta urinib ko'ring.")
 
-        # Qibla va yo'nalishni hisoblash
         qibla = calculate_qibla(lat, lon)
         direction = get_direction_name(qibla)
 
@@ -1050,7 +1058,11 @@ async def namoz_qibla_handler(client, message: Message):
         await msg.edit_text(text, reply_markup=main_menu())
 
     except Exception as e:
-        await msg.edit_text(f"⚠️ Xatolik yuz berdi: {e}")
+        # Agar xabar o'chirilgan bo'lsa yoki boshqa xatolik bo'lsa bot qotib qolmasligi uchun
+        try:
+            await msg.edit_text(f"⚠️ Tizim xatosi: {e}")
+        except:
+            pass
 
 # --- ASOSIY LOOP ---
 async def main():
