@@ -61,6 +61,15 @@ app = Client("quran_bot_session", api_id=API_ID, api_hash=API_HASH, bot_token=BO
 USER_STATES, TEMP_FAV, SEARCH_CACHE, ACTIVE_QUIZZES = {}, {}, {}, {}
 TASBEH_COUNTS = {}
 
+# --- QORILAR BAZASI (GITHUB UCHUN) ---
+RECITERS = {}
+# Agar internet yoki GitHub ishlamay qolsa, bot qulamayishi uchun zaxira:
+DEFAULT_RECITERS = {
+    "Mishariy Alafasiy": "https://server8.mp3quran.net/afs/",
+    "Abdulbosit Abdussamad": "https://server7.mp3quran.net/basit/",
+    "Abdulloh Al-Juhaniy": "https://server13.mp3quran.net/jhn/"
+}
+
 # --- MA'LUMOTLAR BAZASI ---
 conn = sqlite3.connect('users.db', check_same_thread=False)
 cursor = conn.cursor()
@@ -78,7 +87,6 @@ except:
 
 # --- MA'LUMOTLAR ---
 TASBEH_DHIKRS = ["Subhanalloh", "Alhamdulilloh", "Allohu Akbar", "La ilaha illalloh", "Astag'firulloh", "La havla va la quvvata illa billah", "Subhanallohi va bihamdihi", "Subhanallohil 'Aziym", "La ilaha illallohu vahdahu la sharika lah", "Allohumma solli 'ala Muhammad", "Bismillah", "Hasbunallohu va ni'mal vakil"]
-RECITERS = {"Mishariy Alafasiy": "https://server8.mp3quran.net/afs/", "Abdulbosit Abdussamad": "https://server7.mp3quran.net/basit/", "Abdulloh Al-Juhaniy": "https://server13.mp3quran.net/jhn/", "Abdulmohsin Al-Qosim": "https://server8.mp3quran.net/qasm/", "Abdulvaliy Al-Arkoniy": "https://server6.mp3quran.net/arkani/", "Odil Al-Xalboniy": "https://server8.mp3quran.net/a_klb/", "Ahmad Al-Ajmiy": "https://server10.mp3quran.net/ajm/", "Abdurahmon As-Sudays": "https://server11.mp3quran.net/sds/", "Sa'd Ash-Shuraym": "https://server7.mp3quran.net/shur/", "Aliy Al-Huzayfiy": "https://server8.mp3quran.net/hthfi/"}
 SURA_NAMES = ["Fotiha", "Baqara", "Oli Imron", "Niso", "Moida", "An'om", "A'rof", "Anfol", "Tavba", "Yunus", "Hud", "Yusuf", "Ra'd", "Ibrohim", "Hijr", "Nahl", "Isro", "Kahf", "Maryam", "Toha", "Anbiyo", "Haj", "Mu'minun", "Nur", "Furqon", "Shuaro", "Naml", "Qasas", "Ankabut", "Rum", "Luqmon", "Sajda", "Ahzob", "Saba", "Fatir", "Yosin", "Soffat", "Sod", "Zumar", "G'ofir", "Fussilat", "Sho'ro", "Zuhruf", "Duxon", "Josiya", "Ahqof", "Muhammad", "Fath", "Hujurot", "Qof", "Zoriyot", "Tur", "Najm", "Qamar", "Rahmon", "Voqea", "Hadid", "Mujodala", "Hashr", "Mumtahana", "Saff", "Jumua", "Munofiqun", "Tag'obun", "Taloq", "Tahrim", "Mulk", "Qalam", "Hoqqa", "Ma'orij", "Nuh", "Jinn", "Muzzammil", "Muddassir", "Qiyomat", "Inson", "Mursalot", "Naba'", "Nazi'ot", "Abasa", "Takvir", "Infitor", "Mutaffifin", "Inshiqoq", "Buruj", "Toriq", "A'lo", "G'oshiya", "Fajr", "Balad", "Shams", "Layl", "Zuho", "Sharh", "Tin", "Alaq", "Qadr", "Bayyina", "Zalzala", "Odiyot", "Qori'a", "Takasur", "Asr", "Humaza", "Fil", "Quraysh", "Mo'un", "Kavsar", "Kofirun", "Nasr", "Masad", "Ixlos", "Falaq", "Nos"]
 
 def main_menu(rem=False, is_group=False):
@@ -147,12 +155,30 @@ def names_menu(page=0):
     if (page*10)+10 < len(ALL_NAMES): nav.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"name_page:{page+1}"))
     if nav: btns.append(nav)
     return InlineKeyboardMarkup(btns)
-  # --- YORDAMCHI FUNKSIYALAR ---
+
+# --- YORDAMCHI FUNKSIYALAR ---
+async def load_reciters_from_github():
+    global RECITERS
+    # SIZNING GITHUB HAVOLANGIZ (Rasmdan olindi)
+    github_url = "https://raw.githubusercontent.com/alisher0409/Namoz-bot/main/reciters.json"
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(github_url, timeout=10) as resp:
+                if resp.status == 200:
+                    RECITERS = await resp.json()
+                    print(f"✅ GitHub'dan {len(RECITERS)} ta qori yuklandi!")
+                else:
+                    print("❌ GitHub'dan yuklashda xatolik. Status:", resp.status)
+                    RECITERS = DEFAULT_RECITERS
+    except Exception as e:
+        print(f"❌ GitHub bilan aloqa yo'q: {e}")
+        RECITERS = DEFAULT_RECITERS
+
 async def fetch_prayer_times(lat: float, lon: float) -> dict:
     try:
         coords = Coordinates(lat, lon)
         tz = ZoneInfo("Asia/Tashkent")
-        # al-falak kutubxonasi orqali hisoblash
         pt = PrayerTimes(coords, datetime.now(tz), CalculationMethod.MUSLIM_WORLD_LEAGUE, time_zone=tz)
         return {
             "Fajr": pt.fajr.strftime("%H:%M"),
@@ -432,7 +458,8 @@ async def show_weekly_top(client, message: Message):
         text += f"{medal} {row[0]} — **{row[1]} ball**\n"
         
     await message.reply(text)
-  # --- CALLBACK HANDLERLAR ---
+
+# --- CALLBACK HANDLERLAR ---
 @app.on_callback_query(filters.regex(r"^reciter:"))
 async def select_reciter(client, callback_query: CallbackQuery):
     reciter_name = callback_query.data.split(":", 1)[1]
@@ -454,6 +481,10 @@ async def send_audio(client, callback_query: CallbackQuery):
     await callback_query.answer("⏳ Audio yuklanmoqda...")
     _, reciter_name, surah_num = callback_query.data.split(":")
     surah_num = int(surah_num)
+    
+    if reciter_name not in RECITERS:
+        return await callback_query.answer("Xatolik: Qori topilmadi", show_alert=True)
+        
     audio_url = f"{RECITERS[reciter_name]}{surah_num:03d}.mp3"
     temp_file = f"temp_{surah_num}.mp3"
     try:
@@ -698,8 +729,7 @@ async def toggle_reminders(client, message: Message):
     await message.reply("✅ Namoz eslatmalari yoqildi." if new_status == 1 else "🔕 Namoz eslatmalari o'chirildi.", reply_markup=main_menu(new_status == 1))
 
 
-# ===== NAMOZ VAQTI VA QIBLA (OFFLINE HISOBLASH) =====
-
+# ===== NAMOZ VAQTI VA QIBLA =====
 namoz_kb = ReplyKeyboardMarkup(
     [
         [KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)],
@@ -708,7 +738,6 @@ namoz_kb = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# Matn orqali ushlash (Qidiruvdan oldin ishlashi uchun group=-1)
 @app.on_message(filters.text & filters.private, group=-1)
 async def namoz_qibla_text_catch(client, message: Message):
     if "Namoz vaqtlari" in message.text:
@@ -735,7 +764,6 @@ async def namoz_qibla_handler(client, message: Message):
     msg = await message.reply("⏳ Hisoblanmoqda...")
 
     try:
-        # al-falak orqali offline hisoblash
         times = await fetch_prayer_times(lat, lon)
         
         if not times:
@@ -755,9 +783,7 @@ async def namoz_qibla_handler(client, message: Message):
             f"📍 Koordinatalar: {lat:.4f}, {lon:.4f}"
         )
         
-        # Matnni tahrirlash
         await msg.edit_text(text)
-        # Pastdagi menyuni asosiy holatga qaytarish
         await message.reply("Asosiy menyu:", reply_markup=main_menu())
 
     except Exception as e:
@@ -768,8 +794,13 @@ async def namoz_qibla_handler(client, message: Message):
 
 # --- ASOSIY LOOP ---
 async def main():
-    print("Bot muvaffaqiyatli ishga tushdi...")
+    print("Bot ishga tushmoqda...")
+    
+    # GITHUB'DAN QORILARNI YUKLASH (Bot ishga tushishidan oldin)
+    await load_reciters_from_github()
+    
     await app.start()
+    print("Bot muvaffaqiyatli ishga tushdi...")
     await idle()
     await app.stop()
 
