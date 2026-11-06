@@ -15,7 +15,7 @@ from pyrogram.types import (
     Message, CallbackQuery,
     ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardMarkup, InlineKeyboardButton,
-    BotCommand
+    BotCommand, BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats
 )
 from pyrogram.enums import ChatMemberStatus, ChatType
 from alfalak import PrayerTimes, CalculationMethod, Coordinates
@@ -42,7 +42,7 @@ QUIZ_DATA = {}
 QUIZ_JSON_URL = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/quiz_data.json"
 GAMES = {} 
 
-# --- BAZA (WAL REJIMIDA - TEZ ISHLASHI UCHUN) ---
+# --- BAZA (WAL REJIMIDA) ---
 conn = sqlite3.connect('users.db', check_same_thread=False)
 conn.execute("PRAGMA journal_mode=WAL;") 
 cursor = conn.cursor()
@@ -73,11 +73,11 @@ def main_menu(rem=False):
     ], resize_keyboard=True)
 
 def quiz_categories_menu():
-    bot_link = "https://t.me/Islomiy_agent_Bot?startgroup=true" # Bot username'ingizni to'g'rilang
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🕋 Islom tarixi", callback_data="quiz_cat:tarix"), InlineKeyboardButton("📜 Hadislar", callback_data="quiz_cat:hadis")],
         [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_cat:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_cat:shariat")],
-        [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=bot_link)]
+        [InlineKeyboardButton("🏆 Haftalik Reyting (Bot)", callback_data="quiz_top_weekly")],
+        [InlineKeyboardButton("🎮 Guruhda test yechish", callback_data="quiz_start_in_group")]
     ])
 
 def duolar_menu(page=0):
@@ -348,17 +348,18 @@ async def run_question_timer(client, chat_id, q_idx):
 
     correct_text = q["options"][q["correct_idx"]]
     
-    top_players = sorted(GAMES[chat_id]["players"].values(), key=lambda x: x["score"], reverse=True)[:3]
+    top_players = sorted(GAMES[chat_id]["players"].items(), key=lambda x: x[1]["score"], reverse=True)[:3]
     leaderboard_text = "\n\n🏆 **Hozirgi yetakchilar:**\n"
-    for i, p in enumerate(top_players):
+    for i, (uid, p) in enumerate(top_players):
         medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
-        leaderboard_text += f"{medal} {p['name']} — {p['score']} ball\n"
+        leaderboard_text += f'{medal} <a href="tg://user?id={uid}">{p["name"]}</a> — {p["score"]} ball\n'
 
     try:
         await client.edit_message_text(
             chat_id, state["msg_id"],
             f"⏰ **Vaqt tugadi!**\n\n❓ {q['q']}\n✅ **To'g'ri javob:** {correct_text}{leaderboard_text}",
-            reply_markup=None
+            reply_markup=None,
+            parse_mode="HTML"
         )
     except: pass
 
@@ -386,15 +387,12 @@ async def check_quiz_answer(client, callback_query: CallbackQuery):
     is_correct = (opt_idx == q["correct_idx"])
 
     if is_correct:
-        time_taken = time.time() - state["q_start_time"]
-        points = 10 if time_taken <= 3 else 5 if time_taken <= 8 else 2
-
+        points = 1 # Har doim 1 ball
         state["players"][user.id]["score"] += points
         date_str = datetime.now(ZoneInfo("Asia/Tashkent")).strftime("%Y-%m-%d")
         cursor.execute("INSERT INTO quiz_stats (user_id, chat_id, username, score, date) VALUES (?, ?, ?, ?, ?)", (user.id, chat_id, user.first_name, points, date_str))
         conn.commit()
-        
-        await callback_query.answer(f"✅ +{points} ball")
+        await callback_query.answer(f"✅ +1 ball")
     else:
         await callback_query.answer("❌ Xato javob!")
 
@@ -418,13 +416,15 @@ async def end_game(client, chat_id):
     state = GAMES.pop(chat_id, None)
     if not state or not state["players"]: return await client.send_message(chat_id, "🏁 **O'yin tugadi!**\nHech kim qatnashmadi.")
 
-    sorted_players = sorted(state["players"].values(), key=lambda x: x["score"], reverse=True)
-    text = "🏁 **O'YIN TUGADI!**\n\n🏆 **Yakuniy Natijalar:**\n\n"
-    for i, p in enumerate(sorted_players[:10]):
+    sorted_players = sorted(state["players"].items(), key=lambda x: x[1]["score"], reverse=True)
+    text = "🏁 **O'YIN TUGADI!**\n\n🏆 **Yakuniy Natijalar (Top 10):**\n\n"
+    
+    for i, (uid, p) in enumerate(sorted_players[:10]):
         medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
-        text += f"{medal} {p['name']} — **{p['score']} ball**\n"
+        text += f'{medal} <a href="tg://user?id={uid}">{p["name"]}</a> — <b>{p["score"]} ball</b>\n'
+        
     text += "\n🎮 Yana o'ynash uchun /quiz buyrug'ini bering."
-    await client.send_message(chat_id, text)
+    await client.send_message(chat_id, text, parse_mode="HTML")
 
 # --- GURUH SOZLAMALARI VA REYTING ---
 @app.on_message(filters.regex(r"^/vaqt($|@)"))
@@ -465,6 +465,44 @@ async def show_weekly_top(client, message: Message):
         medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
         text += f"{medal} {row[0]} — **{row[1]} ball**\n"
     await message.reply(text)
+
+@app.on_callback_query(filters.regex(r"^quiz_top_weekly$"))
+async def show_quiz_weekly_top(client, callback_query: CallbackQuery):
+    today = datetime.now(ZoneInfo("Asia/Tashkent"))
+    start_of_week = today - timedelta(days=today.weekday())
+    start_str = start_of_week.strftime("%Y-%m-%d")
+
+    cursor.execute("SELECT username, SUM(score) as total FROM quiz_stats WHERE date >= ? AND chat_id > 0 GROUP BY user_id ORDER BY total DESC LIMIT 20", (start_str,))
+    rows = cursor.fetchall()
+
+    if not rows: return await callback_query.answer("Bu hafta botda hali hech kim o'ynamadi.", show_alert=True)
+
+    text = "🏆 **Botdagi Haftalik TOP 20 Reyting:**\n\n"
+    for i, row in enumerate(rows):
+        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
+        text += f"{medal} {row[0]} — **{row[1]} ball**\n"
+
+    text += "\n🔄 Reyting har dushanba yangilanadi."
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="quiz_back")]])
+    await callback_query.message.edit_text(text, reply_markup=kb)
+
+@app.on_callback_query(filters.regex(r"^quiz_back$"))
+async def quiz_back(client, callback_query: CallbackQuery):
+    await callback_query.message.edit_text("🎮 **Viktorina bo'limini tanlang:**", reply_markup=quiz_categories_menu())
+
+@app.on_callback_query(filters.regex(r"^quiz_start_in_group$"))
+async def start_in_group_callback(client, callback_query: CallbackQuery):
+    bot_link = "https://t.me/Islomiy_agent_Bot?startgroup=true"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("➕ Botni guruhga qo'shish", url=bot_link)]])
+    
+    await callback_query.message.edit_text(
+        "🎮 **Guruhda test yechish qoidalari:**\n\n"
+        "1. Avval botni o'z guruhingizga qo'shing (quyidagi tugma orqali).\n"
+        "2. Botni guruhda **Admin** qilib tayinlang.\n"
+        "3. Guruhga o'tib **/quiz** buyrug'ini yozing.\n"
+        "4. Guruhda o'yin 10 soniyadan so'ng avtomatik boshlanadi!",
+        reply_markup=kb
+    )
 
 # --- QOLGAN CALLBACK HANDLERLAR ---
 @app.on_callback_query(filters.regex(r"^reciter:"))
@@ -735,6 +773,11 @@ async def namoz_cmd(client, message: Message):
 async def qibla_cmd(client, message: Message): 
     await message.reply("🧭 Qibla yo'nalishini bilish uchun joylashuvni yuboring:", reply_markup=namoz_kb)
 
+@app.on_message(filters.regex(r"^/ramazon($|@)"))
+async def ramazon_cmd(client, message: Message):
+    text = f"🌙 **Ramazon oyi ma'lumotlari:**\n\n⏳ {ramazon_days_left()}\n\nRamazon oyida barcha ibodatlaringiz qabul bo'lsin!"
+    await message.reply(text)
+
 @app.on_message(filters.location)
 async def namoz_qibla_handler(client, message: Message):
     lat, lon = message.location.latitude, message.location.longitude
@@ -764,14 +807,24 @@ async def main():
     await load_data_from_github() 
     await app.start()
     
+    # Bot (Shaxsiy chat) uchun buyruqlar
     await app.set_bot_commands([
         BotCommand("start", "Botni ishga tushirish"),
         BotCommand("quiz", "Viktorinani boshlash"),
         BotCommand("top", "Haftalik reytingni ko'rish"),
         BotCommand("namoz", "Namoz vaqtlarini bilish"),
         BotCommand("qibla", "Qibla yo'nalishini aniqlash"),
-        BotCommand("vaqt", "Guruhda savol vaqtini sozlash")
-    ])
+        BotCommand("ramazon", "Ramazonga qolgan kunlar")
+    ], scope=BotCommandScopeAllPrivateChats())
+
+    # Guruhlar uchun buyruqlar (Qibla olib tashlandi, Ramazon qo'shildi)
+    await app.set_bot_commands([
+        BotCommand("start", "Botni ishga tushirish"),
+        BotCommand("quiz", "Viktorinani boshlash"),
+        BotCommand("top", "Guruh reytingini ko'rish"),
+        BotCommand("vaqt", "Savol vaqtini sozlash"),
+        BotCommand("ramazon", "Ramazonga qolgan kunlar")
+    ], scope=BotCommandScopeAllGroupChats())
     
     print("Bot muvaffaqiyatli ishga tushdi...")
     await idle()
