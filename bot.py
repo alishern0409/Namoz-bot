@@ -15,11 +15,9 @@ from pyrogram.types import (
     Message, CallbackQuery,
     ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardMarkup, InlineKeyboardButton,
-    BotCommand  # <-- 4-o'zgartirish: Buyruqlar menyusi uchun
+    BotCommand
 )
 from pyrogram.enums import ChatMemberStatus, ChatType
-
-# --- AL-FALAK (OFFLINE NAMOZ VAQTI) ---
 from alfalak import PrayerTimes, CalculationMethod, Coordinates
 
 # --- FAYLLARNI YUKLASH ---
@@ -44,7 +42,7 @@ QUIZ_DATA = {}
 QUIZ_JSON_URL = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/quiz_data.json"
 GAMES = {} 
 
-# --- BAZA ---
+# --- BAZA (WAL REJIMIDA - TEZ ISHLASHI UCHUN) ---
 conn = sqlite3.connect('users.db', check_same_thread=False)
 conn.execute("PRAGMA journal_mode=WAL;") 
 cursor = conn.cursor()
@@ -75,9 +73,11 @@ def main_menu(rem=False):
     ], resize_keyboard=True)
 
 def quiz_categories_menu():
+    bot_link = "https://t.me/Islomiy_agent_Bot?startgroup=true" # Bot username'ingizni to'g'rilang
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🕋 Islom tarixi", callback_data="quiz_cat:tarix"), InlineKeyboardButton("📜 Hadislar", callback_data="quiz_cat:hadis")],
-        [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_cat:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_cat:shariat")]
+        [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_cat:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_cat:shariat")],
+        [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=bot_link)]
     ])
 
 def duolar_menu(page=0):
@@ -154,7 +154,7 @@ async def fetch_prayer_times(lat: float, lon: float) -> dict:
             "Fajr": pt.fajr.strftime("%H:%M"), "Dhuhr": pt.dhuhr.strftime("%H:%M"),
             "Asr": pt.asr.strftime("%H:%M"), "Maghrib": pt.maghrib.strftime("%H:%M"), "Isha": pt.isha.strftime("%H:%M")
         }
-    except Exception as e: return None
+    except: return None
 
 def calculate_qibla(lat: float, lon: float) -> float:
     lat1, lon1, lat2, lon2 = map(math.radians, [lat, lon, 21.4225, 39.8262])
@@ -193,7 +193,7 @@ async def send_long_text(message_or_cb, text, kb=None):
             if kb: await message_or_cb.reply("⬆️ Ma'lumotlar davomi", reply_markup=kb)
 
 # ====== VIKTORINA: LOBBY VA SOZLAMALAR ======
-@app.on_message(filters.command("quiz") | filters.regex(r"^🎮 Viktorina$"))
+@app.on_message(filters.regex(r"^/quiz($|@)") | filters.regex(r"^🎮 Viktorina$"))
 async def quiz_start_cmd(client, message: Message):
     chat_id = message.chat.id
     if chat_id in GAMES: return await message.reply("⚠️ Bu chatda allaqachon o'yin ketmoqda!")
@@ -237,7 +237,7 @@ async def quiz_create_lobby(client, callback_query: CallbackQuery):
         random.shuffle(options)
         questions.append({"q": q["q"], "options": options, "correct_idx": options.index(correct)})
 
-    # SHAXSIY CHAT REJIMI (Lobbysiz, darhol boshlanadi)
+    # SHAXSIY CHAT REJIMI
     if callback_query.message.chat.type == ChatType.PRIVATE:
         GAMES[chat_id] = {
             "status": "playing", "host": user.id, "category": category,
@@ -315,7 +315,7 @@ async def send_next_question(client, chat_id):
     try:
         msg = await client.send_message(chat_id, text, reply_markup=kb)
         state["msg_id"] = msg.id
-    except Exception as e: return
+    except Exception: return
 
     asyncio.create_task(run_question_timer(client, chat_id, state["current_idx"]))
 
@@ -326,7 +326,6 @@ async def run_question_timer(client, chat_id, q_idx):
     q = state["questions"][q_idx]
     timer_sec = state["timer"]
     
-    # Tugmalarni saqlab qolish uchun qayta e'lon qilamiz
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton(o, callback_data=f"qans:{q_idx}:{i}")]
         for i, o in enumerate(q["options"])
@@ -340,7 +339,7 @@ async def run_question_timer(client, chat_id, q_idx):
             await client.edit_message_text(
                 chat_id, state["msg_id"],
                 f"❓ **Savol {q_idx+1}/{len(state['questions'])}**\n⏳ _Qolgan vaqt: {remaining} soniya_\n\n**{q['q']}**",
-                reply_markup=kb # Tugmalar o'chib qolmasligi uchun biriktiriladi
+                reply_markup=kb
             )
         except: pass
 
@@ -384,8 +383,9 @@ async def check_quiz_answer(client, callback_query: CallbackQuery):
 
     state["answered"].add(user.id)
     q = state["questions"][q_idx]
+    is_correct = (opt_idx == q["correct_idx"])
 
-    if opt_idx == q["correct_idx"]:
+    if is_correct:
         time_taken = time.time() - state["q_start_time"]
         points = 10 if time_taken <= 3 else 5 if time_taken <= 8 else 2
 
@@ -397,6 +397,22 @@ async def check_quiz_answer(client, callback_query: CallbackQuery):
         await callback_query.answer(f"✅ +{points} ball")
     else:
         await callback_query.answer("❌ Xato javob!")
+
+    # SHAXSIY CHATDA DARHOL KEYINGI SAVOLGA O'TISH
+    if callback_query.message.chat.type == ChatType.PRIVATE:
+        state["current_idx"] += 1 
+        correct_text = q["options"][q["correct_idx"]]
+        status_text = "✅ To'g'ri javob!" if is_correct else "❌ Xato javob!"
+        
+        try:
+            await callback_query.message.edit_text(
+                f"{status_text}\n\n❓ {q['q']}\n✅ **To'g'ri javob:** {correct_text}",
+                reply_markup=None
+            )
+        except: pass
+        
+        await asyncio.sleep(1)
+        await send_next_question(client, chat_id)
 
 async def end_game(client, chat_id):
     state = GAMES.pop(chat_id, None)
@@ -411,7 +427,7 @@ async def end_game(client, chat_id):
     await client.send_message(chat_id, text)
 
 # --- GURUH SOZLAMALARI VA REYTING ---
-@app.on_message(filters.command("vaqt"))
+@app.on_message(filters.regex(r"^/vaqt($|@)"))
 async def set_quiz_time(client, message: Message):
     if message.chat.type not in [ChatType.GROUP, ChatType.SUPERGROUP]: return await message.reply("Bu buyruq faqat guruhlarda ishlaydi.")
     try:
@@ -428,17 +444,23 @@ async def set_quiz_time(client, message: Message):
     conn.commit()
     await message.reply(f"✅ Savolga beriladigan vaqt **{timer} soniya** etib belgilandi.")
 
-@app.on_message(filters.command("top") & filters.private)
+@app.on_message(filters.regex(r"^/top($|@)"))
 async def show_weekly_top(client, message: Message):
     today = datetime.now(ZoneInfo("Asia/Tashkent"))
     start_of_week = today - timedelta(days=today.weekday())
     start_str = start_of_week.strftime("%Y-%m-%d")
 
-    cursor.execute("SELECT username, SUM(score) as total FROM quiz_stats WHERE date >= ? GROUP BY user_id ORDER BY total DESC LIMIT 30", (start_str,))
-    rows = cursor.fetchall()
+    if message.chat.type == ChatType.PRIVATE:
+        cursor.execute("SELECT username, SUM(score) as total FROM quiz_stats WHERE date >= ? GROUP BY user_id ORDER BY total DESC LIMIT 20", (start_str,))
+        rows = cursor.fetchall()
+        title = "🏆 **Global (Barcha guruhlar) Haftalik TOP 20:**\n\n"
+    else:
+        cursor.execute("SELECT username, SUM(score) as total FROM quiz_stats WHERE date >= ? AND chat_id = ? GROUP BY user_id ORDER BY total DESC LIMIT 20", (start_str, message.chat.id))
+        rows = cursor.fetchall()
+        title = "🏆 **Ushbu guruhning Haftalik TOP 20 reytingi:**\n\n"
 
-    if not rows: return await message.reply("🏆 Bu hafta hali hech kim viktorinada qatnashmadi.")
-    text = "🏆 **Haftalik TOP 30 Reyting:**\n\n"
+    if not rows: return await message.reply("Hafta boshidan beri hali hech kim o'ynamadi.")
+    text = title
     for i, row in enumerate(rows):
         medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
         text += f"{medal} {row[0]} — **{row[1]} ball**\n"
@@ -480,7 +502,7 @@ async def send_audio(client, callback_query: CallbackQuery):
                 with open(temp_file, "wb") as f: f.write(await resp.read())
         await client.send_audio(callback_query.from_user.id, audio=temp_file, title=f"{surah_num}-sura", performer=reciter_name)
         await callback_query.message.delete()
-    except Exception as e: await callback_query.message.edit_text(f"❌ Tizim xatosi: Qayta urinib ko'ring.")
+    except Exception: await callback_query.message.edit_text(f"❌ Tizim xatosi: Qayta urinib ko'ring.")
     finally:
         if os.path.exists(temp_file): os.remove(temp_file)
 
@@ -562,31 +584,34 @@ async def update_loc_callback(client, callback_query: CallbackQuery):
     kb = ReplyKeyboardMarkup([[KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)], [KeyboardButton("⬅️ Orqaga")]], resize_keyboard=True)
     await callback_query.message.reply("Yangi lokatsiyangizni yuboring:", reply_markup=kb)
 
-# --- ASOSIY XABAR HANDLERLARI ---
-@app.on_message(filters.command("start") & filters.private)
+# --- ASOSIY XABAR HANDLERLARI (FAQAT SHAXSIY CHAT UCHUN) ---
+@app.on_message(filters.regex(r"^/start($|@)"))
 async def cmd_start(client, message: Message):
     USER_STATES[message.from_user.id] = None
-    cursor.execute("SELECT reminders FROM users WHERE user_id = ?", (message.from_user.id,))
-    user = cursor.fetchone()
-    await message.reply("Assalomu alaykum! 🕌\nKerakli bo'limni tanlang:", reply_markup=main_menu(bool(user[0]) if user else False))
+    if message.chat.type == ChatType.PRIVATE:
+        cursor.execute("SELECT reminders FROM users WHERE user_id = ?", (message.from_user.id,))
+        user = cursor.fetchone()
+        await message.reply("Assalomu alaykum! 🕌\nKerakli bo'limni tanlang:", reply_markup=main_menu(bool(user[0]) if user else False))
+    else:
+        await message.reply("Assalomu alaykum! 🕌\n\n🎮 Viktorinani boshlash uchun /quiz buyrug'ini bering.\n🏆 Guruh reytingini ko'rish uchun /top buyrug'ini bering.")
 
-@app.on_message(filters.regex(r"^🎧 Qorilar va qiroatlar$"))
+@app.on_message(filters.regex(r"^🎧 Qorilar va qiroatlar$") & filters.private)
 async def show_reciters(client, message: Message): 
     USER_STATES[message.from_user.id] = None
     await message.reply("🎧 **Mashhur qorilar**", reply_markup=reciters_menu(0))
 
-@app.on_message(filters.regex(r"^🤲 Duolar$"))
+@app.on_message(filters.regex(r"^🤲 Duolar$") & filters.private)
 async def show_duolar(client, message: Message): 
     USER_STATES[message.from_user.id] = None
     await message.reply("🤲 **Sahih hadislardan olingan duolar**\n\nVaziyatni tanlang:", reply_markup=duolar_menu(0))
 
-@app.on_message(filters.regex(r"^📿 Raqamli Tasbeh$"))
+@app.on_message(filters.regex(r"^📿 Raqamli Tasbeh$") & filters.private)
 async def tasbeh_start(client, message: Message):
     USER_STATES[message.from_user.id] = None
     TASBEH_COUNTS[message.from_user.id] = 0
     await message.reply("📿 **Raqamli Tasbeh**\n\nZikrni tanlang:", reply_markup=tasbeh_dhikrs_menu())
 
-@app.on_message(filters.regex(r"^📖 Kunlik oyat$"))
+@app.on_message(filters.regex(r"^📖 Kunlik oyat$") & filters.private)
 async def get_ayah(client, message: Message):
     USER_STATES[message.from_user.id] = None
     msg = await message.reply("⏳ Oyat qidirilmoqda...")
@@ -602,7 +627,7 @@ async def get_ayah(client, message: Message):
                 await msg.edit_text(text, reply_markup=kb)
     except: await msg.edit_text("❌ Xatolik.")
 
-@app.on_message(filters.regex(r"^📜 Kunlik hadis$"))
+@app.on_message(filters.regex(r"^📜 Kunlik hadis$") & filters.private)
 async def get_hadith(client, message: Message):
     USER_STATES[message.from_user.id] = None
     hadith_text = random.choice(HADITHS)
@@ -612,7 +637,7 @@ async def get_hadith(client, message: Message):
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("⭐ Saqlash", callback_data=f"fav_save:hadis:{fav_id}")]])
     await message.reply(text, reply_markup=kb)
 
-@app.on_message(filters.regex(r"^⭐ Sevimlilar$"))
+@app.on_message(filters.regex(r"^⭐ Sevimlilar$") & filters.private)
 async def show_favorites(client, message: Message):
     USER_STATES[message.from_user.id] = None
     cursor.execute("SELECT fav_text FROM favorites WHERE user_id = ?", (message.from_user.id,))
@@ -622,12 +647,37 @@ async def show_favorites(client, message: Message):
     for fav in favs: text += f"• {fav[0][:100]}...\n\n"
     await message.reply(text)
 
-@app.on_message(filters.regex(r"^📚 Diniy ma'rifiy$"))
+@app.on_message(filters.regex(r"^📚 Diniy ma'rifiy$") & filters.private)
 async def ilmiy_menu_show(client, message: Message): 
     USER_STATES[message.from_user.id] = None
     await message.reply("📚 **Bo'limni tanlang:**", reply_markup=ilmiy_menu())
 
-# --- QIDIRUV TIZIMI ---
+@app.on_message(filters.regex(r"^🔍 Qidiruv tizimi$") & filters.private)
+async def search_start(client, message: Message):
+    USER_STATES[message.from_user.id] = "search"
+    await message.reply("🔍 **Qidiruv rejimi yoqildi.**\n\nKetma-ket qidiruv uchun so'zlarni yozib yuboraverasiz. Qidiruvdan chiqish uchun boshqa bo'limni tanlang yoki /start bosing.")
+
+@app.on_message(filters.text & filters.private & ~filters.regex(r"^/"), group=1)
+async def handle_search_input(client, message: Message):
+    if message.chat.id in GAMES: return 
+    if USER_STATES.get(message.from_user.id) != "search": return
+    text = message.text.strip()
+    msg = await message.reply("⏳ Qur'on ichidan qidirilmoqda...")
+    try:
+        search_query = f"%{text.lower()}%"
+        quran_cursor = quran_conn.cursor()
+        quran_cursor.execute("SELECT surah_num, ayah_num, uzbek FROM quran WHERE LOWER(uzbek) LIKE ? LIMIT 50", (search_query,))
+        results = quran_cursor.fetchall()
+        if results:
+            SEARCH_CACHE[message.from_user.id] = {"results": results, "idx": 0, "query": text}
+            await show_search_result(msg, message.from_user.id)
+        else:
+            await msg.edit_text(f"❌ Kechirasiz, '{text}' so'zi bo'yicha hech narsa topilmadi.\n\nYana boshqa so'z yozib ko'rishingiz mumkin.")
+    except Exception as e:
+        print(f"Qidiruv xatosi: {e}")
+        await msg.edit_text("❌ Qidiruvda xatolik yuz berdi.")
+
+# --- QIDIRUV NATIJALARI ---
 async def show_search_result(message_or_cb, user_id: int, is_edit=False):
     cache = SEARCH_CACHE.get(user_id)
     if not cache or not cache["results"]: return
@@ -658,34 +708,7 @@ async def search_pagination(client, callback_query: CallbackQuery):
     await callback_query.answer()
     await show_search_result(callback_query, user_id, is_edit=True)
 
-@app.on_message(filters.regex(r"^🔍 Qidiruv tizimi$"))
-async def search_start(client, message: Message):
-    USER_STATES[message.from_user.id] = "search"
-    await message.reply("🔍 **Qidiruv rejimi yoqildi.**\n\nKetma-ket qidiruv uchun so'zlarni yozib yuboraverasiz. Qidiruvdan chiqish uchun boshqa bo'limni tanlang yoki /start bosing.")
-
-@app.on_message(filters.text & filters.private & ~filters.regex(r"^/"), group=1)
-async def handle_search_input(client, message: Message):
-    # 2-o'zgartirish: Guruhda o'yin ketayotgan bo'lsa, xalaqit bermaslik
-    if message.chat.id in GAMES: return 
-        
-    if USER_STATES.get(message.from_user.id) != "search": return
-    text = message.text.strip()
-    msg = await message.reply("⏳ Qur'on ichidan qidirilmoqda...")
-    try:
-        search_query = f"%{text.lower()}%"
-        quran_cursor = quran_conn.cursor()
-        quran_cursor.execute("SELECT surah_num, ayah_num, uzbek FROM quran WHERE LOWER(uzbek) LIKE ? LIMIT 50", (search_query,))
-        results = quran_cursor.fetchall()
-        if results:
-            SEARCH_CACHE[message.from_user.id] = {"results": results, "idx": 0, "query": text}
-            await show_search_result(msg, message.from_user.id)
-        else:
-            await msg.edit_text(f"❌ Kechirasiz, '{text}' so'zi bo'yicha hech narsa topilmadi.\n\nYana boshqa so'z yozib ko'rishingiz mumkin.")
-    except Exception as e:
-        print(f"Qidiruv xatosi: {e}")
-        await msg.edit_text("❌ Qidiruvda xatolik yuz berdi.")
-
-@app.on_message(filters.regex(r"^(🔔 Eslatmani yoqish|🔕 Eslatmani o'chirish)$"))
+@app.on_message(filters.regex(r"^(🔔 Eslatmani yoqish|🔕 Eslatmani o'chirish)$") & filters.private)
 async def toggle_reminders(client, message: Message):
     USER_STATES[message.from_user.id] = None
     cursor.execute("SELECT reminders FROM users WHERE user_id = ?", (message.from_user.id,))
@@ -696,24 +719,21 @@ async def toggle_reminders(client, message: Message):
     conn.commit()
     await message.reply("✅ Namoz eslatmalari yoqildi." if new_status == 1 else "🔕 Namoz eslatmalari o'chirildi.", reply_markup=main_menu(new_status == 1))
 
-@app.on_message(filters.regex(r"^⬅️ Orqaga$"))
+@app.on_message(filters.regex(r"^⬅️ Orqaga$") & filters.private)
 async def back_to_main_menu(client, message: Message):
     USER_STATES[message.from_user.id] = None
     await message.reply("Asosiy menyu:", reply_markup=main_menu(False))
 
-# ===== NAMOZ VAQTI VA QIBLA =====
+# ===== NAMOZ VAQTI VA QIBLA (FAQAT SHAXSIY CHAT) =====
 namoz_kb = ReplyKeyboardMarkup([[KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)], [KeyboardButton("⬅️ Orqaga")]], resize_keyboard=True)
 
-@app.on_message(filters.text & filters.private, group=-1)
-async def namoz_qibla_text_catch(client, message: Message):
-    if "Namoz vaqtlari" in message.text: await message.reply("📍 Namoz vaqtlarini bilish uchun joylashuvingizni yuboring:", reply_markup=namoz_kb)
-    elif "Qibla yo'nalishi" in message.text: await message.reply("🧭 Qibla yo'nalishini bilish uchun joylashuvni yuboring:", reply_markup=namoz_kb)
+@app.on_message(filters.regex(r"^/namoz($|@)") | filters.regex(r"^🕌 Namoz vaqtlari$") & filters.private)
+async def namoz_cmd(client, message: Message): 
+    await message.reply("📍 Namoz vaqtlarini bilish uchun joylashuvingizni yuboring:", reply_markup=namoz_kb)
 
-@app.on_message(filters.command("namoz"))
-async def namoz_cmd(client, message: Message): await message.reply("📍 Namoz vaqtlarini bilish uchun joylashuvingizni yuboring:", reply_markup=namoz_kb)
-
-@app.on_message(filters.command("qibla"))
-async def qibla_cmd(client, message: Message): await message.reply("🧭 Qibla yo'nalishini bilish uchun joylashuvni yuboring:", reply_markup=namoz_kb)
+@app.on_message(filters.regex(r"^/qibla($|@)") | filters.regex(r"^🧭 Qibla yo'nalishi$") & filters.private)
+async def qibla_cmd(client, message: Message): 
+    await message.reply("🧭 Qibla yo'nalishini bilish uchun joylashuvni yuboring:", reply_markup=namoz_kb)
 
 @app.on_message(filters.location)
 async def namoz_qibla_handler(client, message: Message):
@@ -732,7 +752,8 @@ async def namoz_qibla_handler(client, message: Message):
             f"🧭 **Qibla:** {qibla:.1f}° ({direction})\n📍 Koordinatalar: {lat:.4f}, {lon:.4f}"
         )
         await msg.edit_text(text)
-        await message.reply("Asosiy menyu:", reply_markup=main_menu())
+        if message.chat.type == ChatType.PRIVATE:
+            await message.reply("Asosiy menyu:", reply_markup=main_menu())
     except Exception as e:
         try: await msg.edit_text(f"⚠️ Xatolik yuz berdi: {e}")
         except: pass
@@ -743,7 +764,6 @@ async def main():
     await load_data_from_github() 
     await app.start()
     
-    # 4-o'zgartirish: / bosganda buyruqlar menyusi chiqishi uchun
     await app.set_bot_commands([
         BotCommand("start", "Botni ishga tushirish"),
         BotCommand("quiz", "Viktorinani boshlash"),
