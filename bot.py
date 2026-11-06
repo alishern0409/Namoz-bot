@@ -3,11 +3,11 @@ import aiohttp
 import sqlite3
 import math
 import random
-import urllib.parse
 import os
 import re
 import uuid
 import json
+import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pyrogram import Client, filters, idle
@@ -17,38 +17,35 @@ from pyrogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 from pyrogram.enums import ChatMemberStatus, ChatType
-
-# --- AL-FALAK (OFFLINE NAMOZ VAQTI) ---
 from alfalak import PrayerTimes, CalculationMethod, Coordinates
 
-# --- FAYLLARNI YUKLASH (FAQAT QOLGANLARI, VIKTORINA ENDI JSON'DAN) ---
+# --- FAYLLARNI YUKLASH ---
 try: from hadiths_data import HADITHS
 except: HADITHS = ["Hadislar topilmadi."]
 try: from marifiy_data import ALL_NAMES, SIYRAT_TEXT, TAHORAT_TEXT, RAMAZON_TEXT
 except: ALL_NAMES, SIYRAT_TEXT, TAHORAT_TEXT, RAMAZON_TEXT = [("Xatolik", "", "")], "", "", ""
 try: from duolar_data import DUOLAR
-except: DUOLAR = {"xato": {"nomi": "Xatolik", "arabcha": "", "oqilishi": "", "tarjima": "duolar_data.py yuklanmagan", "manba": ""}}
+except: DUOLAR = {"xato": {"nomi": "Xatolik", "arabcha": "", "oqilishi": "", "tarjima": "Yuklanmagan", "manba": ""}}
 
 # --- SOZLAMALAR ---
-BOT_TOKEN = "9251800638:AAFPMR4CNKS_2hQASTLfs-31aK6mONiE9Mg" # O'zingizning tokeningiz
+BOT_TOKEN = "9251800638:AAFPMR4CNKS_2hQASTLfs-31aK6mONiE9Mg" 
 API_ID = 24348700
 API_HASH = "2e5778fd17289b5388a364c0ac495a64"
 app = Client("quran_bot_session", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 # --- GLOBAL HOLATLAR ---
-USER_STATES, TEMP_FAV, SEARCH_CACHE, ACTIVE_QUIZZES = {}, {}, {}, {}
+USER_STATES, TEMP_FAV, SEARCH_CACHE = {}, {}, {}
 TASBEH_COUNTS = {}
-
-# --- QORILAR VA VIKTORINA BAZASI (GITHUB UCHUN) ---
 RECITERS = {}
-DEFAULT_RECITERS = {"Mishariy Alafasiy": "https://server8.mp3quran.net/afs/"}
-
-QUIZ_DATA = {} # Viktorina savollari shu yerga yuklanadi
-# GitHub'dagi JSON faylingiz havolasi:
+QUIZ_DATA = {}
 QUIZ_JSON_URL = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/quiz_data.json"
 
-# --- MA'LUMOTLAR BAZASI ---
+# Viktorina uchun yangi global lug'at
+GAMES = {} # Har bir chat uchun faol o'yin holati
+
+# --- BAZA ---
 conn = sqlite3.connect('users.db', check_same_thread=False)
+conn.execute("PRAGMA journal_mode=WAL;") # Tez ishlashi uchun
 cursor = conn.cursor()
 cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, lat REAL, lon REAL, reminders INTEGER DEFAULT 0)''')
 cursor.execute('''CREATE TABLE IF NOT EXISTS favorites (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, fav_type TEXT, fav_text TEXT)''')
@@ -58,16 +55,15 @@ conn.commit()
 
 try: 
     quran_conn = sqlite3.connect('quran.db', check_same_thread=False)
-    print("✅ QURAN.DB MUVAFFAQIYATLI YUKLANDI!")
+    print("✅ QURAN.DB YUKLANDI!")
 except: 
     quran_conn = None
 
-# --- MA'LUMOTLAR ---
-TASBEH_DHIKRS = ["Subhanalloh", "Alhamdulilloh", "Allohu Akbar", "La ilaha illalloh", "Astag'firulloh", "La havla va la quvvata illa billah", "Subhanallohi va bihamdihi", "Subhanallohil 'Aziym", "La ilaha illallohu vahdahu la sharika lah", "Allohumma solli 'ala Muhammad", "Bismillah", "Hasbunallohu va ni'mal vakil"]
+# --- MENYULAR ---
+TASBEH_DHIKRS = ["Subhanalloh", "Alhamdulilloh", "Allohu Akbar", "La ilaha illalloh", "Astag'firulloh"]
 SURA_NAMES = ["Fotiha", "Baqara", "Oli Imron", "Niso", "Moida", "An'om", "A'rof", "Anfol", "Tavba", "Yunus", "Hud", "Yusuf", "Ra'd", "Ibrohim", "Hijr", "Nahl", "Isro", "Kahf", "Maryam", "Toha", "Anbiyo", "Haj", "Mu'minun", "Nur", "Furqon", "Shuaro", "Naml", "Qasas", "Ankabut", "Rum", "Luqmon", "Sajda", "Ahzob", "Saba", "Fatir", "Yosin", "Soffat", "Sod", "Zumar", "G'ofir", "Fussilat", "Sho'ro", "Zuhruf", "Duxon", "Josiya", "Ahqof", "Muhammad", "Fath", "Hujurot", "Qof", "Zoriyot", "Tur", "Najm", "Qamar", "Rahmon", "Voqea", "Hadid", "Mujodala", "Hashr", "Mumtahana", "Saff", "Jumua", "Munofiqun", "Tag'obun", "Taloq", "Tahrim", "Mulk", "Qalam", "Hoqqa", "Ma'orij", "Nuh", "Jinn", "Muzzammil", "Muddassir", "Qiyomat", "Inson", "Mursalot", "Naba'", "Nazi'ot", "Abasa", "Takvir", "Infitor", "Mutaffifin", "Inshiqoq", "Buruj", "Toriq", "A'lo", "G'oshiya", "Fajr", "Balad", "Shams", "Layl", "Zuho", "Sharh", "Tin", "Alaq", "Qadr", "Bayyina", "Zalzala", "Odiyot", "Qori'a", "Takasur", "Asr", "Humaza", "Fil", "Quraysh", "Mo'un", "Kavsar", "Kofirun", "Nasr", "Masad", "Ixlos", "Falaq", "Nos"]
 
-def main_menu(rem=False, is_group=False):
-    if is_group: return None
+def main_menu(rem=False):
     return ReplyKeyboardMarkup([
         [KeyboardButton("🎧 Qorilar va qiroatlar"), KeyboardButton("🤲 Duolar")],
         [KeyboardButton("📿 Raqamli Tasbeh"), KeyboardButton("📖 Kunlik oyat")],
@@ -77,6 +73,309 @@ def main_menu(rem=False, is_group=False):
         [KeyboardButton("🕌 Namoz vaqtlari"), KeyboardButton("🧭 Qibla yo'nalishi")]
     ], resize_keyboard=True)
 
+def quiz_categories_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🕋 Islom tarixi", callback_data="quiz_cat:tarix"), InlineKeyboardButton("📜 Hadislar", callback_data="quiz_cat:hadis")],
+        [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_cat:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_cat:shariat")]
+    ])
+
+# --- YUKLASH ---
+async def load_data_from_github():
+    global RECITERS, QUIZ_DATA
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/reciters.json", timeout=10) as resp:
+                if resp.status == 200: RECITERS = json.loads(await resp.text())
+    except: pass
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(QUIZ_JSON_URL, timeout=20) as resp:
+                if resp.status == 200: 
+                    QUIZ_DATA = json.loads(await resp.text())
+                    print(f"✅ Viktorina yuklandi: {sum(len(v) for v in QUIZ_DATA.values())} ta savol.")
+    except: pass
+
+# ====== VIKTORINA: LOBBY (KUTISH ZALI) ======
+@app.on_message(filters.command("quiz") | filters.regex(r"^🎮 Viktorina$"))
+async def quiz_start_cmd(client, message: Message):
+    chat_id = message.chat.id
+    if chat_id in GAMES:
+        return await message.reply("⚠️ Bu chatda allaqachon o'yin ketmoqda!")
+    
+    await message.reply(
+        "🎮 **Viktorina bo'limini tanlang:**", 
+        reply_markup=quiz_categories_menu()
+    )
+
+@app.on_callback_query(filters.regex(r"^quiz_cat:"))
+async def quiz_select_category(client, callback_query: CallbackQuery):
+    category = callback_query.data.split(":")[1]
+    chat_id = callback_query.message.chat.id
+    
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("1️⃣ 10 ta", callback_data=f"quiz_len:{category}:10"), InlineKeyboardButton("2️⃣ 20 ta", callback_data=f"quiz_len:{category}:20")],
+        [InlineKeyboardButton("3️⃣ 30 ta", callback_data=f"quiz_len:{category}:30")]
+    ])
+    await callback_query.message.edit_text("Nechta savol o'ynaymiz?", reply_markup=kb)
+
+@app.on_callback_query(filters.regex(r"^quiz_len:"))
+async def quiz_create_lobby(client, callback_query: CallbackQuery):
+    _, category, count = callback_query.data.split(":")
+    count = int(count)
+    chat_id = callback_query.message.chat.id
+    user = callback_query.from_user
+
+    if chat_id in GAMES:
+        return await callback_query.answer("O'yin allaqachon boshlangan!", show_alert=True)
+
+    # Savollarni tayyorlash
+    pool = QUIZ_DATA.get(category, [])
+    if not pool:
+        return await callback_query.answer("Bu bo'limda savollar yo'q!", show_alert=True)
+    
+    random.shuffle(pool)
+    questions = []
+    for q in pool[:count]:
+        options = list(q["options"])
+        correct = q["answer"]
+        if correct not in options: continue
+        random.shuffle(options)
+        questions.append({"q": q["q"], "options": options, "correct_idx": options.index(correct)})
+
+    # O'yin holatini yaratish
+    GAMES[chat_id] = {
+        "status": "lobby",
+        "host": user.id,
+        "category": category,
+        "questions": questions,
+        "current_idx": 0,
+        "players": {}, # user_id: {"name": ..., "score": 0}
+        "answered": set(),
+        "q_start_time": 0,
+        "timer": 15,
+        "msg_id": None
+    }
+
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Qatnashish", callback_data="quiz_join")]])
+    
+    msg = await callback_query.message.edit_text(
+        f"🏁 **Yangi o'yin boshlanmoqda!**\n\n"
+        f"📚 Bo'lim: {category.capitalize()}\n"
+        f"❓ Savollar: {len(questions)} ta\n\n"
+        f"⏳ O'yin 10 soniyadan so'ng boshlanadi. Qatnashish uchun tugmani bosing!",
+        reply_markup=kb
+    )
+    GAMES[chat_id]["msg_id"] = msg.id
+
+    # Lobby taymeri (10 soniya)
+    await asyncio.sleep(10)
+    
+    # Agar o'yin bekor qilinmagan bo'lsa va odamlar yig'ilgan bo'lsa
+    if chat_id in GAMES and GAMES[chat_id]["status"] == "lobby":
+        if not GAMES[chat_id]["players"]:
+            del GAMES[chat_id]
+            return await msg.edit_text("❌ Hech kim qatnashmadi. O'yin bekor qilindi.")
+        
+        GAMES[chat_id]["status"] = "playing"
+        await start_game_loop(client, chat_id)
+
+@app.on_callback_query(filters.regex(r"^quiz_join$"))
+async def quiz_join(client, callback_query: CallbackQuery):
+    chat_id = callback_query.message.chat.id
+    user = callback_query.from_user
+
+    if chat_id not in GAMES or GAMES[chat_id]["status"] != "lobby":
+        return await callback_query.answer("Lobby yopilgan!", show_alert=True)
+    
+    if user.id in GAMES[chat_id]["players"]:
+        return await callback_query.answer("Siz allaqachon qatnashyapsiz!", show_alert=True)
+
+    GAMES[chat_id]["players"][user.id] = {"name": user.first_name, "score": 0}
+    await callback_query.answer("✅ O'yinga qo'shildingiz!", show_alert=True)
+    
+    # Lobby matnini yangilash
+    players_count = len(GAMES[chat_id]["players"])
+    try:
+        await callback_query.message.edit_text(
+            f"🏁 **Yangi o'yin boshlanmoqda!**\n\n"
+            f"📚 Bo'lim: {GAMES[chat_id]['category'].capitalize()}\n"
+            f"❓ Savollar: {len(GAMES[chat_id]['questions'])} ta\n\n"
+            f"👥 Qatnashuvchilar: {players_count} ta\n"
+            f"⏳ O'yin 10 soniyadan so'ng boshlanadi. Qatnashish uchun tugmani bosing!",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Qatnashish", callback_data="quiz_join")]])
+        )
+    except: pass
+        # ====== VIKTORINA: O'YIN JARAYONI ======
+
+async def start_game_loop(client, chat_id):
+    state = GAMES.get(chat_id)
+    if not state: return
+    await send_next_question(client, chat_id)
+
+async def send_next_question(client, chat_id):
+    state = GAMES.get(chat_id)
+    if not state: return
+
+    # Savollar tugagan bo'lsa, o'yinni yakunlash
+    if state["current_idx"] >= len(state["questions"]):
+        return await end_game(client, chat_id)
+
+    q = state["questions"][state["current_idx"]]
+    state["answered"] = set()
+    state["q_start_time"] = time.time() # Javob berish tezligini hisoblash uchun aniq vaqt
+    
+    # Tugmalarni yaratish (A, B, C, D)
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(o, callback_data=f"qans:{state['current_idx']}:{i}")]
+        for i, o in enumerate(q["options"])
+    ])
+
+    # Savolni yuborish
+    text = (
+        f"❓ **Savol {state['current_idx']+1}/{len(state['questions'])}**\n"
+        f"⏳ _Vaqt: {state['timer']} soniya_\n\n"
+        f"**{q['q']}**"
+    )
+    
+    try:
+        msg = await client.send_message(chat_id, text, reply_markup=kb)
+        state["msg_id"] = msg.id
+    except Exception as e:
+        print(f"Xabar yuborishda xato: {e}")
+        return
+
+    # Orqa fonda taymerni ishga tushirish
+    asyncio.create_task(run_question_timer(client, chat_id, state["current_idx"]))
+
+async def run_question_timer(client, chat_id, q_idx):
+    state = GAMES.get(chat_id)
+    if not state: return
+
+    q = state["questions"][q_idx]
+    timer_sec = state["timer"]
+    
+    # Har 3 soniyada xabarni yangilaymiz (Telegram Flood limitiga tushmaslik uchun)
+    for remaining in range(timer_sec - 3, 0, -3):
+        await asyncio.sleep(3)
+        if chat_id not in GAMES or GAMES[chat_id]["current_idx"] != q_idx: return
+        
+        try:
+            await client.edit_message_text(
+                chat_id, state["msg_id"],
+                f"❓ **Savol {q_idx+1}/{len(state['questions'])}**\n"
+                f"⏳ _Qolgan vaqt: {remaining} soniya_\n\n"
+                f"**{q['q']}**"
+            )
+        except: pass
+
+    # Oxirgi soniyalar
+    await asyncio.sleep(timer_sec % 3 if timer_sec % 3 != 0 else 3)
+    
+    if chat_id not in GAMES or GAMES[chat_id]["current_idx"] != q_idx: return
+
+    # Vaqt tugadi
+    correct_text = q["options"][q["correct_idx"]]
+    
+    # Top 3 ni aniqlash
+    top_players = sorted(GAMES[chat_id]["players"].values(), key=lambda x: x["score"], reverse=True)[:3]
+    leaderboard_text = "\n\n🏆 **Hozirgi yetakchilar:**\n"
+    for i, p in enumerate(top_players):
+        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
+        leaderboard_text += f"{medal} {p['name']} — {p['score']} ball\n"
+
+    try:
+        await client.edit_message_text(
+            chat_id, state["msg_id"],
+            f"⏰ **Vaqt tugadi!**\n\n"
+            f"❓ {q['q']}\n"
+            f"✅ **To'g'ri javob:** {correct_text}"
+            f"{leaderboard_text}",
+            reply_markup=None
+        )
+    except: pass
+
+    await asyncio.sleep(3) # Keyingi savolga o'tishdan oldin biroz kutish
+    GAMES[chat_id]["current_idx"] += 1
+    await send_next_question(client, chat_id)
+
+# ====== JAVOBNI QABUL QILISH ======
+@app.on_callback_query(filters.regex(r"^qans:"))
+async def check_quiz_answer(client, callback_query: CallbackQuery):
+    chat_id = callback_query.message.chat.id
+    user = callback_query.from_user
+    state = GAMES.get(chat_id)
+
+    if not state or state["status"] != "playing":
+        return await callback_query.answer("O'yin faol emas.", show_alert=True)
+
+    _, q_idx, opt_idx = callback_query.data.split(":")
+    q_idx, opt_idx = int(q_idx), int(opt_idx)
+
+    # Eski savolga bosilgan bo'lsa
+    if q_idx != state["current_idx"]:
+        return await callback_query.answer("Bu savol eskirgan.", show_alert=True)
+
+    # Foydalanuvchi o'yinda qatnashyaptimi?
+    if user.id not in state["players"]:
+        return await callback_query.answer("Siz bu o'yinda qatnashmayapsiz!", show_alert=True)
+
+    # Allaqachon javob berganmi?
+    if user.id in state["answered"]:
+        return await callback_query.answer("Siz bu savolga allaqachon javob bergansiz!", show_alert=True)
+
+    # Javob berganlar ro'yxatiga qo'shish
+    state["answered"].add(user.id)
+    
+    q = state["questions"][q_idx]
+    is_correct = (opt_idx == q["correct_idx"])
+
+    if is_correct:
+        # Tezlikni hisoblash
+        time_taken = time.time() - state["q_start_time"]
+        
+        # Quiz Bot uslubida tezlikka qarab ball berish
+        if time_taken <= 3:
+            points = 10
+            speed_text = "⚡️ Juda tez!"
+        elif time_taken <= 8:
+            points = 5
+            speed_text = "🔥 Yaxshi!"
+        else:
+            points = 2
+            speed_text = "👍"
+
+        state["players"][user.id]["score"] += points
+        
+        # Bazaga yozish (Haftalik reyting uchun)
+        date_str = datetime.now(ZoneInfo("Asia/Tashkent")).strftime("%Y-%m-%d")
+        cursor.execute("INSERT INTO quiz_stats (user_id, chat_id, username, score, date) VALUES (?, ?, ?, ?, ?)", (user.id, chat_id, user.first_name, points, date_str))
+        conn.commit()
+        
+        # Foydalanuvchiga ko'rinadigan qisqa xabar (show_alert=False qilib qo'yamiz, chunki guruhda 20 kishi bossa oyna ko'p chiqadi)
+        await callback_query.answer(f"{speed_text} +{points} ball", show_alert=False)
+    else:
+        await callback_query.answer("❌ Xato javob!", show_alert=False)
+
+# ====== O'YIN YAKUNI ======
+async def end_game(client, chat_id):
+    state = GAMES.pop(chat_id, None)
+    if not state: return
+
+    players = state["players"]
+    if not players:
+        return await client.send_message(chat_id, "🏁 **O'yin tugadi!**\nHech kim qatnashmadi.")
+
+    sorted_players = sorted(players.values(), key=lambda x: x["score"], reverse=True)
+
+    text = "🏁 **O'YIN TUGADI!**\n\n🏆 **Yakuniy Natijalar (Top 10):**\n\n"
+    for i, p in enumerate(sorted_players[:10]):
+        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
+        text += f"{medal} {p['name']} — **{p['score']} ball**\n"
+
+    text += "\n🎮 Yana o'ynash uchun /quiz buyrug'ini bering."
+    await client.send_message(chat_id, text)
+    # --- YORDAMCHI MENYULAR ---
 def duolar_menu(page=0):
     items = list(DUOLAR.items())
     start, end = page * 5, (page * 5) + 5
@@ -86,14 +385,6 @@ def duolar_menu(page=0):
     if end < len(items): nav.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"duo_page:{page+1}"))
     if nav: btns.append(nav)
     return InlineKeyboardMarkup(btns)
-
-def quiz_categories_menu():
-    bot_link = "https://t.me/IslomiyBot?startgroup=true" # O'z botingiz username'ini yozing
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🕋 Islom tarixi", callback_data="quiz_cat:tarix"), InlineKeyboardButton("📜 Hadislar", callback_data="quiz_cat:hadis")],
-        [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_cat:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_cat:shariat")],
-        [InlineKeyboardButton("➕ Botni guruhga qo'shish", url=bot_link)]
-    ])
 
 def reciters_menu(page=0):
     items = list(RECITERS.items())[page*10:(page*10)+10]
@@ -133,280 +424,65 @@ def names_menu(page=0):
     if nav: btns.append(nav)
     return InlineKeyboardMarkup(btns)
 
-# --- YORDAMCHI FUNKSIYALAR (GITHUB'DAN YUKLASH) ---
-async def load_data_from_github():
-    global RECITERS, QUIZ_DATA
-    
-    # 1. Qorilarni yuklash
+# --- NAMOZ VAQTI YORDAMCHILARI ---
+async def fetch_prayer_times(lat: float, lon: float) -> dict:
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/reciters.json", timeout=15) as resp:
-                if resp.status == 200:
-                    RECITERS = json.loads(await resp.text())
-                    print(f"✅ {len(RECITERS)} ta qori yuklandi!")
-                else:
-                    RECITERS = DEFAULT_RECITERS
+        coords = Coordinates(lat, lon)
+        tz = ZoneInfo("Asia/Tashkent")
+        pt = PrayerTimes(coords, datetime.now(tz), CalculationMethod.MUSLIM_WORLD_LEAGUE, time_zone=tz)
+        return {
+            "Fajr": pt.fajr.strftime("%H:%M"),
+            "Dhuhr": pt.dhuhr.strftime("%H:%M"),
+            "Asr": pt.asr.strftime("%H:%M"),
+            "Maghrib": pt.maghrib.strftime("%H:%M"),
+            "Isha": pt.isha.strftime("%H:%M")
+        }
     except Exception as e:
-        print(f"❌ Qorilarni yuklashda xatolik: {e}")
-        RECITERS = DEFAULT_RECITERS
+        print(f"❌ Hisoblashda xatolik: {e}")
+        return None
 
-    # 2. Viktorina savollarini yuklash (4000+ savol)
-    try:
-        print("⏳ Viktorina savollari yuklanmoqda...")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(QUIZ_JSON_URL, timeout=30) as resp:
-                if resp.status == 200:
-                    QUIZ_DATA = json.loads(await resp.text())
-                    total_q = sum(len(q_list) for q_list in QUIZ_DATA.values())
-                    print(f"✅ Viktorina yuklandi! Jami {total_q} ta savol.")
-                else:
-                    print(f"❌ Viktorina JSON xatosi: {resp.status}")
-    except Exception as e:
-        print(f"❌ Viktorinani yuklashda xatolik: {e}")
-      # --- VIKTORINA YADROSI (QUIZ BOT USLUBIDA) ---
-def prepare_questions(category, count):
-    pool = QUIZ_DATA.get(category, [])
-    if not pool: return []
-    
-    random.shuffle(pool)
-    questions = []
-    for q in pool[:count]:
-        options = list(q["options"])
-        correct = q["answer"]
-        if correct not in options or len(options) < 4: continue
-        
-        # Variantlarni aralashtirish
-        if len(options) > 4:
-            options = random.sample([o for o in options if o != correct], 3) + [correct]
-        random.shuffle(options)
-        questions.append({"q": q["q"], "options": options, "correct_idx": options.index(correct)})
-    return questions
+def calculate_qibla(lat: float, lon: float) -> float:
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat, lon, 21.4225, 39.8262])
+    x = math.sin(lon2 - lon1)
+    y = math.cos(lat1) * math.tan(lat2) - math.sin(lat1) * math.cos(lon2 - lon1)
+    return (math.degrees(math.atan2(x, y)) + 360) % 360
 
-async def show_question(client, chat_id):
-    state = ACTIVE_QUIZZES.get(chat_id)
-    if not state: return
-    
-    if state["idx"] >= len(state["questions"]):
-        return await end_quiz(client, chat_id)
+def get_direction_name(degree: float) -> str:
+    if 337.5 <= degree or degree < 22.5: return "Shimol (North) ⬆️"
+    elif 22.5 <= degree < 67.5: return "Shimoli-Sharq (North-East) ↗️"
+    elif 67.5 <= degree < 112.5: return "Sharq (East) ➡️"
+    elif 112.5 <= degree < 157.5: return "Janubi-Sharq (South-East) ↘️"
+    elif 157.5 <= degree < 202.5: return "Janub (South) ⬇️"
+    elif 202.5 <= degree < 247.5: return "Janubi-G'arb (South-West) ↙️"
+    elif 247.5 <= degree < 292.5: return "G'arb (West) ⬅️"
+    elif 292.5 <= degree < 337.5: return "Shimoli-G'arb (North-West) ↖️"
+    return "Noma'lum"
 
-    q = state["questions"][state["idx"]]
-    state["answered_by"] = set()
-    state["start_time"] = datetime.now() # Tezlikni hisoblash uchun vaqtni yozib olamiz
-    
-    text = f"❓ **Savol {state['idx']+1}/{len(state['questions'])}**\n⏳ _Vaqt: {state['timer']} soniya_\n\n{q['q']}"
-    
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(o, callback_data=f"ans:{state['idx']}:{i}")]
-        for i, o in enumerate(q["options"])
-    ])
+def ramazon_days_left():
+    delta = (datetime(2027, 2, 8, tzinfo=ZoneInfo("Asia/Tashkent")) - datetime.now(ZoneInfo("Asia/Tashkent"))).days
+    return f"Ramazon oyiga {delta} kun qoldi." if delta > 0 else ("Bugun Ramazonning birinchi kuni!" if delta == 0 else "Ramazon oyi tugagan.")
 
-    try:
-        msg = await client.send_message(chat_id, text, reply_markup=kb)
-        state["msg_id"] = msg.id
-    except Exception as e:
-        print(f"Xabar yuborishda xato: {e}")
-        return
-
-    # Orqa fonda taymerni ishga tushirish
-    asyncio.create_task(quiz_timer(client, chat_id, state["idx"], state["timer"]))
-
-async def quiz_timer(client, chat_id, q_idx, timer_sec):
-    state = ACTIVE_QUIZZES.get(chat_id)
-    if not state: return
-    q = state["questions"][q_idx]
-    
-    # Har 1 soniyada xabarni yangilab, vaqtni ko'rsatib turamiz
-    for remaining in range(timer_sec - 1, 0, -1):
-        await asyncio.sleep(1)
-        if not ACTIVE_QUIZZES.get(chat_id) or ACTIVE_QUIZZES[chat_id]["idx"] != q_idx: return
-        try:
-            await client.edit_message_text(
-                chat_id, state["msg_id"], 
-                f"❓ **Savol {q_idx+1}/{len(state['questions'])}**\n⏳ _Qolgan vaqt: {remaining} soniya_\n\n{q['q']}"
-            )
-        except: pass
-
-    # Vaqt tugashi
-    if not ACTIVE_QUIZZES.get(chat_id) or ACTIVE_QUIZZES[chat_id]["idx"] != q_idx: return 
-
-    correct_text = q["options"][q["correct_idx"]]
-    try:
-        await client.edit_message_text(
-            chat_id, state["msg_id"], 
-            f"⏰ **Vaqt tugadi!**\n\n❓ {q['q']}\n\n✅ **To'g'ri javob:** {correct_text}", 
-            reply_markup=None
-        )
-    except: pass
-
-    await asyncio.sleep(2) 
-    state["idx"] += 1
-    await show_question(client, chat_id)
-
-@app.on_callback_query(filters.regex(r"^ans:"))
-async def check_answer(client, callback_query: CallbackQuery):
-    chat_id = callback_query.message.chat.id
-    state = ACTIVE_QUIZZES.get(chat_id)
-    
-    if not state: 
-        return await callback_query.answer("O'yin topilmadi yoki allaqachon tugagan.", show_alert=True)
-
-    _, q_idx, opt_idx = callback_query.data.split(":")
-    q_idx, opt_idx = int(q_idx), int(opt_idx)
-    user = callback_query.from_user
-
-    if q_idx != state["idx"]:
-        return await callback_query.answer("Bu savol eskirgan.", show_alert=True)
-
-    if user.id in state["answered_by"]:
-        return await callback_query.answer("Siz bu savolga allaqachon javob bergansiz!", show_alert=True)
-
-    # Javob berganini belgilaymiz
-    state["answered_by"].add(user.id)
-    q = state["questions"][q_idx]
-    correct_idx = q["correct_idx"]
-
-    if opt_idx == correct_idx:
-        # Quiz Bot uslubida tezlikka qarab ball berish
-        time_taken = (datetime.now() - state["start_time"]).total_seconds()
-        if time_taken <= 3:
-            points = 10
-        elif time_taken <= 8:
-            points = 5
+async def send_long_text(message_or_cb, text, kb=None):
+    if len(text) <= 4000:
+        if isinstance(message_or_cb, CallbackQuery):
+            await message_or_cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
         else:
-            points = 2
-
-        if user.id not in state["session_scores"]:
-            state["session_scores"][user.id] = {"name": user.first_name, "score": 0}
-        state["session_scores"][user.id]["score"] += points
-        
-        # Bazaga yozish (Haftalik TOP uchun)
-        date_str = datetime.now(ZoneInfo("Asia/Tashkent")).strftime("%Y-%m-%d")
-        cursor.execute("INSERT INTO quiz_stats (user_id, chat_id, username, score, date) VALUES (?, ?, ?, ?, ?)", (user.id, chat_id, user.first_name, points, date_str))
-        conn.commit()
-        
-        await callback_query.answer(f"✅ To'g'ri javob! +{points} ball", show_alert=True)
+            await message_or_cb.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
     else:
-        await callback_query.answer("❌ Xato javob!", show_alert=True)
+        # Uzun matnni bo'lib yuborish (Pyrogram limiti)
+        chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
+        if isinstance(message_or_cb, CallbackQuery):
+            await message_or_cb.message.edit_text(chunks[0], disable_web_page_preview=True)
+            for chunk in chunks[1:]:
+                await message_or_cb.message.reply(chunk, disable_web_page_preview=True)
+            if kb: await message_or_cb.message.reply("⬆️ Ma'lumotlar davomi", reply_markup=kb)
+        else:
+            await message_or_cb.edit_text(chunks[0], disable_web_page_preview=True)
+            for chunk in chunks[1:]:
+                await message_or_cb.reply(chunk, disable_web_page_preview=True)
+            if kb: await message_or_cb.reply("⬆️ Ma'lumotlar davomi", reply_markup=kb)
 
-async def end_quiz(client, chat_id):
-    state = ACTIVE_QUIZZES.pop(chat_id, None)
-    if not state: return
-    
-    scores = state.get("session_scores", {})
-    if not scores:
-        return await client.send_message(chat_id, "🏁 **Viktorina tugadi!**\n\nAfsuski, hech kim to'g'ri javob bera olmadi.")
-        
-    sorted_scores = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
-    
-    text = "🏁 **Viktorina tugadi!**\n\n🏆 **O'yin natijalari (Top 10):**\n\n"
-    for i, data in enumerate(sorted_scores[:10]):
-        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
-        text += f"{medal} {data['name']} — **{data['score']} ball**\n"
-        
-    await client.send_message(chat_id, text)
-  # --- VIKTORINANI BOSHLASH (MENYULAR) ---
-@app.on_message(filters.command("viktorina"))
-async def start_quiz_cmd(client, message: Message):
-    await message.reply("🎮 **Viktorina bo'limini tanlang:**", reply_markup=quiz_categories_menu())
-
-@app.on_message(filters.regex(r"^🎮 Viktorina$") & filters.private)
-async def start_quiz_btn(client, message: Message):
-    await message.reply("🎮 **Viktorina bo'limini tanlang:**", reply_markup=quiz_categories_menu())
-
-@app.on_callback_query(filters.regex(r"^quiz_cat:"))
-async def select_quiz_category(client, callback_query: CallbackQuery):
-    category = callback_query.data.split(":")[1]
-    USER_STATES[callback_query.from_user.id] = f"quiz_cat_{category}"
-    
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("1️⃣ 10 ta savol", callback_data=f"quiz_len:10"), InlineKeyboardButton("2️⃣ 20 ta savol", callback_data=f"quiz_len:20")],
-        [InlineKeyboardButton("3️⃣ 30 ta savol", callback_data=f"quiz_len:30"), InlineKeyboardButton("5️⃣ 50 ta savol", callback_data=f"quiz_len:50")]
-    ])
-    await callback_query.message.edit_text("Nechta savol o'ynaysiz? Tanlang:", reply_markup=kb)
-
-@app.on_callback_query(filters.regex(r"^quiz_len:"))
-async def start_quiz_actual(client, callback_query: CallbackQuery):
-    count = int(callback_query.data.split(":")[1])
-    user_id = callback_query.from_user.id
-    chat_id = callback_query.message.chat.id
-    
-    state_val = USER_STATES.get(user_id)
-    if not state_val or not state_val.startswith("quiz_cat_"):
-        return await callback_query.answer("Xatolik. Qaytadan urinib ko'ring.", show_alert=True)
-        
-    category = state_val.replace("quiz_cat_", "")
-    questions = prepare_questions(category, count)
-    
-    if not questions:
-        return await callback_query.answer("Kechirasiz, bu bo'limda savollar tugagan yoki yuklanmagan!", show_alert=True)
-
-    timer = 15
-    if callback_query.message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
-        cursor.execute("SELECT timer FROM group_settings WHERE chat_id = ?", (chat_id,))
-        row = cursor.fetchone()
-        if row: timer = row[0]
-
-    ACTIVE_QUIZZES[chat_id] = {
-        "questions": questions,
-        "idx": 0,
-        "timer": timer,
-        "msg_id": None,
-        "answered_by": set(),
-        "session_scores": {},
-        "start_time": None
-    }
-    
-    await callback_query.message.delete()
-    await show_question(client, chat_id)
-
-
-# --- GURUH SOZLAMALARI VA REYTING ---
-@app.on_message(filters.command("vaqt"))
-async def set_quiz_time(client, message: Message):
-    if message.chat.type not in [ChatType.GROUP, ChatType.SUPERGROUP]:
-        return await message.reply("Bu buyruq faqat guruhlarda ishlaydi.")
-        
-    try:
-        member = await client.get_chat_member(message.chat.id, message.from_user.id)
-        if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
-            return await message.reply("Faqatgina guruh adminlari vaqtni o'zgartira oladi!")
-    except: return
-
-    parts = message.text.split()
-    if len(parts) != 2 or not parts[1].isdigit():
-        return await message.reply("To'g'ri format: `/vaqt 20` (soniyalarda)")
-
-    timer = int(parts[1])
-    if timer < 5 or timer > 120:
-        return await message.reply("Vaqt 5 soniyadan 120 soniyagacha bo'lishi kerak.")
-
-    cursor.execute("INSERT OR REPLACE INTO group_settings (chat_id, timer) VALUES (?, ?)", (message.chat.id, timer))
-    conn.commit()
-    await message.reply(f"✅ Savolga beriladigan vaqt **{timer} soniya** etib belgilandi.")
-
-@app.on_message(filters.command("top") & filters.private)
-async def show_weekly_top(client, message: Message):
-    today = datetime.now(ZoneInfo("Asia/Tashkent"))
-    start_of_week = today - timedelta(days=today.weekday())
-    start_str = start_of_week.strftime("%Y-%m-%d")
-
-    cursor.execute(
-        "SELECT username, SUM(score) as total FROM quiz_stats WHERE date >= ? GROUP BY user_id ORDER BY total DESC LIMIT 30",
-        (start_str,)
-    )
-    rows = cursor.fetchall()
-
-    if not rows:
-        return await message.reply("🏆 Bu hafta hali hech kim viktorinada qatnashmadi.")
-
-    text = "🏆 **Haftalik TOP 30 Reyting:**\n\n"
-    for i, row in enumerate(rows):
-        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
-        text += f"{medal} {row[0]} — **{row[1]} ball**\n"
-        
-    await message.reply(text)
-
-# --- CALLBACK HANDLERLAR (QORILAR VA BOSHQA BO'LIMLAR) ---
+# --- CALLBACK HANDLERLAR ---
 @app.on_callback_query(filters.regex(r"^reciter:"))
 async def select_reciter(client, callback_query: CallbackQuery):
     reciter_name = callback_query.data.split(":", 1)[1]
@@ -439,7 +515,7 @@ async def send_audio(client, callback_query: CallbackQuery):
         async with aiohttp.ClientSession() as session:
             async with session.get(audio_url, headers=headers) as resp:
                 if resp.status == 404:
-                    return await callback_query.message.edit_text(f"❌ **Xato:** Kechirasiz, {reciter_name} qorisida {surah_num}-sura mavjud emas.")
+                    return await callback_query.message.edit_text(f"❌ **Xato:** {reciter_name} qorisida {surah_num}-sura topilmadi.")
                 elif resp.status != 200:
                     return await callback_query.message.edit_text(f"❌ **Xato:** Server bilan aloqa uzildi.")
                 
@@ -535,7 +611,6 @@ async def update_loc_callback(client, callback_query: CallbackQuery):
     await callback_query.message.delete()
     kb = ReplyKeyboardMarkup([[KeyboardButton("📍 Lokatsiyani yuborish", request_location=True)], [KeyboardButton("⬅️ Orqaga")]], resize_keyboard=True)
     await callback_query.message.reply("Yangi lokatsiyangizni yuboring:", reply_markup=kb)
-
 
 # --- ASOSIY XABAR HANDLERLARI ---
 @app.on_message(filters.command("start") & filters.private)
@@ -673,7 +748,6 @@ async def back_to_main_menu(client, message: Message):
     USER_STATES[message.from_user.id] = None
     await message.reply("Asosiy menyu:", reply_markup=main_menu(False))
 
-
 # ===== NAMOZ VAQTI VA QIBLA =====
 namoz_kb = ReplyKeyboardMarkup(
     [
@@ -740,7 +814,9 @@ async def namoz_qibla_handler(client, message: Message):
 # --- ASOSIY LOOP ---
 async def main():
     print("Bot ishga tushmoqda...")
-    await load_data_from_github() # Barcha JSON bazalarni yuklash
+    # GitHub'dan barcha ma'lumotlarni yuklash (Qorilar va Viktorina)
+    await load_data_from_github() 
+    
     await app.start()
     print("Bot muvaffaqiyatli ishga tushdi...")
     await idle()
