@@ -72,13 +72,18 @@ def main_menu(rem=False):
         [KeyboardButton("🕌 Namoz vaqtlari"), KeyboardButton("🧭 Qibla yo'nalishi")]
     ], resize_keyboard=True)
 
-def quiz_categories_menu():
-    return InlineKeyboardMarkup([
+# 1-O'ZGARTIRISH: Guruh va Bot uchun alohida menyu
+def quiz_categories_menu(is_group=False):
+    buttons = [
         [InlineKeyboardButton("🕋 Islom tarixi", callback_data="quiz_cat:tarix"), InlineKeyboardButton("📜 Hadislar", callback_data="quiz_cat:hadis")],
-        [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_cat:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_cat:shariat")],
-        [InlineKeyboardButton("🏆 Haftalik Reyting (Bot)", callback_data="quiz_top_weekly")],
-        [InlineKeyboardButton("🎮 Guruhda test yechish", callback_data="quiz_start_in_group")]
-    ])
+        [InlineKeyboardButton("📖 Qur'on", callback_data="quiz_cat:quron"), InlineKeyboardButton("⚖️ Shariat", callback_data="quiz_cat:shariat")]
+    ]
+    if is_group:
+        buttons.append([InlineKeyboardButton("🏆 Guruh Haftalik Reytingi", callback_data="quiz_top_weekly_group")])
+    else:
+        buttons.append([InlineKeyboardButton("🏆 Haftalik Reyting (Bot)", callback_data="quiz_top_weekly")])
+        buttons.append([InlineKeyboardButton("🎮 Guruhda test yechish", callback_data="quiz_start_in_group")])
+    return InlineKeyboardMarkup(buttons)
 
 def duolar_menu(page=0):
     items = list(DUOLAR.items())
@@ -205,7 +210,8 @@ async def quiz_start_cmd(client, message: Message):
                 return await message.reply("⚠️ O'yinni faqat guruh adminlari boshlashi mumkin!")
         except: pass
 
-    await message.reply("🎮 **Viktorina bo'limini tanlang:**", reply_markup=quiz_categories_menu())
+    is_group = message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]
+    await message.reply("🎮 **Viktorina bo'limini tanlang:**", reply_markup=quiz_categories_menu(is_group=is_group))
 
 @app.on_callback_query(filters.regex(r"^quiz_cat:"))
 async def quiz_select_category(client, callback_query: CallbackQuery):
@@ -216,6 +222,7 @@ async def quiz_select_category(client, callback_query: CallbackQuery):
     ])
     await callback_query.message.edit_text("Nechta savol o'ynaymiz?", reply_markup=kb)
 
+# 3-O'ZGARTIRISH: 10 soniya kutish o'rniga Admin boshlaydigan Lobby
 @app.on_callback_query(filters.regex(r"^quiz_len:"))
 async def quiz_create_lobby(client, callback_query: CallbackQuery):
     _, category, count = callback_query.data.split(":")
@@ -248,29 +255,23 @@ async def quiz_create_lobby(client, callback_query: CallbackQuery):
         await callback_query.message.delete()
         return await start_game_loop(client, chat_id)
 
-    # GURUH REJIMI (10 soniyalik Lobby)
+    # GURUH REJIMI (Admin boshlaydigan Lobby)
     GAMES[chat_id] = {
         "status": "lobby", "host": user.id, "category": category,
         "questions": questions, "current_idx": 0,
-        "players": {}, "answered": set(), "q_start_time": 0, "timer": 15, "msg_id": None
+        "players": {user.id: {"name": user.first_name, "score": 0}}, # Admin avtomatik qo'shiladi
+        "answered": set(), "q_start_time": 0, "timer": 15, "msg_id": None
     }
 
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Qatnashish", callback_data="quiz_join")]])
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Qatnashish", callback_data="quiz_join")],
+        [InlineKeyboardButton("🚀 O'yinni boshlash", callback_data="quiz_start_now")]
+    ])
     msg = await callback_query.message.edit_text(
-        f"🏁 **Yangi o'yin boshlanmoqda!**\n\n📚 Bo'lim: {category.capitalize()}\n❓ Savollar: {len(questions)} ta\n\n⏳ O'yin 10 soniyadan so'ng boshlanadi. Qatnashish uchun tugmani bosing!",
+        f"🏁 **Yangi o'yin tayyor!**\n\n📚 Bo'lim: {category.capitalize()}\n❓ Savollar: {len(questions)} ta\n\n👥 Qatnashuvchilar: 1 ta\n\n⏳ Boshqalar qo'shilishini kuting va tayyor bo'lgach **O'yinni boshlash** tugmasini bosing.",
         reply_markup=kb
     )
     GAMES[chat_id]["msg_id"] = msg.id
-
-    await asyncio.sleep(10)
-    
-    if chat_id in GAMES and GAMES[chat_id]["status"] == "lobby":
-        if not GAMES[chat_id]["players"]:
-            del GAMES[chat_id]
-            return await msg.edit_text("❌ Hech kim qatnashmadi. O'yin bekor qilindi.")
-        
-        GAMES[chat_id]["status"] = "playing"
-        await start_game_loop(client, chat_id)
 
 @app.on_callback_query(filters.regex(r"^quiz_join$"))
 async def quiz_join(client, callback_query: CallbackQuery):
@@ -284,12 +285,39 @@ async def quiz_join(client, callback_query: CallbackQuery):
     await callback_query.answer("✅ O'yinga qo'shildingiz!", show_alert=True)
     
     players_count = len(GAMES[chat_id]["players"])
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Qatnashish", callback_data="quiz_join")],
+        [InlineKeyboardButton("🚀 O'yinni boshlash", callback_data="quiz_start_now")]
+    ])
+    
     try:
         await callback_query.message.edit_text(
-            f"🏁 **Yangi o'yin boshlanmoqda!**\n\n📚 Bo'lim: {GAMES[chat_id]['category'].capitalize()}\n❓ Savollar: {len(GAMES[chat_id]['questions'])} ta\n\n👥 Qatnashuvchilar: {players_count} ta\n⏳ O'yin 10 soniyadan so'ng boshlanadi. Qatnashish uchun tugmani bosing!",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Qatnashish", callback_data="quiz_join")]])
+            f"🏁 **Yangi o'yin tayyor!**\n\n📚 Bo'lim: {GAMES[chat_id]['category'].capitalize()}\n❓ Savollar: {len(GAMES[chat_id]['questions'])} ta\n\n👥 Qatnashuvchilar: {players_count} ta\n\n⏳ Boshqalar qo'shilishini kuting va tayyor bo'lgach **O'yinni boshlash** tugmasini bosing.",
+            reply_markup=kb
         )
     except: pass
+
+@app.on_callback_query(filters.regex(r"^quiz_start_now$"))
+async def quiz_start_now(client, callback_query: CallbackQuery):
+    chat_id = callback_query.message.chat.id
+    user_id = callback_query.from_user.id
+    state = GAMES.get(chat_id)
+
+    if not state or state["status"] != "lobby":
+        return await callback_query.answer("Lobby yopilgan yoki o'yin allaqachon boshlangan.", show_alert=True)
+
+    # Faqat admin yoki o'yinni boshlagan shaxs bosa oladi
+    if user_id != state["host"]:
+        try:
+            member = await client.get_chat_member(chat_id, user_id)
+            if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+                return await callback_query.answer("⚠️ O'yinni faqat adminlar boshlashi mumkin!", show_alert=True)
+        except:
+            return await callback_query.answer("⚠️ O'yinni faqat adminlar boshlashi mumkin!", show_alert=True)
+
+    state["status"] = "playing"
+    await callback_query.message.delete()
+    await start_game_loop(client, chat_id)
 
 # ====== VIKTORINA: O'YIN JARAYONI ======
 async def start_game_loop(client, chat_id):
@@ -319,6 +347,7 @@ async def send_next_question(client, chat_id):
 
     asyncio.create_task(run_question_timer(client, chat_id, state["current_idx"]))
 
+# 2-O'ZGARTIRISH: HTML xatolarini ushlab qolish va xabarni to'g'ri yangilash
 async def run_question_timer(client, chat_id, q_idx):
     state = GAMES.get(chat_id)
     if not state: return
@@ -349,19 +378,27 @@ async def run_question_timer(client, chat_id, q_idx):
     correct_text = q["options"][q["correct_idx"]]
     
     top_players = sorted(GAMES[chat_id]["players"].items(), key=lambda x: x[1]["score"], reverse=True)[:3]
-    leaderboard_text = "\n\n🏆 **Hozirgi yetakchilar:**\n"
+    leaderboard_text = "\n\n🏆 <b>Hozirgi yetakchilar:</b>\n"
     for i, (uid, p) in enumerate(top_players):
         medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
-        leaderboard_text += f'{medal} <a href="tg://user?id={uid}">{p["name"]}</a> — {p["score"]} ball\n'
+        name = p["name"].replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
+        leaderboard_text += f'{medal} <a href="tg://user?id={uid}">{name}</a> — {p["score"]} ball\n'
 
     try:
         await client.edit_message_text(
             chat_id, state["msg_id"],
-            f"⏰ **Vaqt tugadi!**\n\n❓ {q['q']}\n✅ **To'g'ri javob:** {correct_text}{leaderboard_text}",
+            f"⏰ <b>Vaqt tugadi!</b>\n\n❓ {q['q']}\n✅ <b>To'g'ri javob:</b> {correct_text}{leaderboard_text}",
             reply_markup=None,
             parse_mode="HTML"
         )
-    except: pass
+    except Exception as e:
+        try:
+            await client.edit_message_text(
+                chat_id, state["msg_id"],
+                f"⏰ Vaqt tugadi!\n\n❓ {q['q']}\n✅ To'g'ri javob: {correct_text}",
+                reply_markup=None
+            )
+        except: pass
 
     await asyncio.sleep(3) 
     GAMES[chat_id]["current_idx"] += 1
@@ -387,7 +424,7 @@ async def check_quiz_answer(client, callback_query: CallbackQuery):
     is_correct = (opt_idx == q["correct_idx"])
 
     if is_correct:
-        points = 1 # Har doim 1 ball
+        points = 1 
         state["players"][user.id]["score"] += points
         date_str = datetime.now(ZoneInfo("Asia/Tashkent")).strftime("%Y-%m-%d")
         cursor.execute("INSERT INTO quiz_stats (user_id, chat_id, username, score, date) VALUES (?, ?, ?, ?, ?)", (user.id, chat_id, user.first_name, points, date_str))
@@ -396,7 +433,6 @@ async def check_quiz_answer(client, callback_query: CallbackQuery):
     else:
         await callback_query.answer("❌ Xato javob!")
 
-    # SHAXSIY CHATDA DARHOL KEYINGI SAVOLGA O'TISH
     if callback_query.message.chat.type == ChatType.PRIVATE:
         state["current_idx"] += 1 
         correct_text = q["options"][q["correct_idx"]]
@@ -486,21 +522,43 @@ async def show_quiz_weekly_top(client, callback_query: CallbackQuery):
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="quiz_back")]])
     await callback_query.message.edit_text(text, reply_markup=kb)
 
+# 1-O'ZGARTIRISH: Guruh uchun alohida reyting
+@app.on_callback_query(filters.regex(r"^quiz_top_weekly_group$"))
+async def show_quiz_weekly_top_group(client, callback_query: CallbackQuery):
+    chat_id = callback_query.message.chat.id
+    today = datetime.now(ZoneInfo("Asia/Tashkent"))
+    start_of_week = today - timedelta(days=today.weekday())
+    start_str = start_of_week.strftime("%Y-%m-%d")
+
+    cursor.execute("SELECT username, SUM(score) as total FROM quiz_stats WHERE date >= ? AND chat_id = ? GROUP BY user_id ORDER BY total DESC LIMIT 20", (start_str, chat_id))
+    rows = cursor.fetchall()
+
+    if not rows: return await callback_query.answer("Bu hafta guruhda hali hech kim o'ynamadi.", show_alert=True)
+
+    text = "🏆 **Guruhning Haftalik TOP 20 Reytingi:**\n\n"
+    for i, row in enumerate(rows):
+        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
+        text += f"{medal} {row[0]} — **{row[1]} ball**\n"
+
+    text += "\n🔄 Reyting har dushanba yangilanadi."
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="quiz_back")]])
+    await callback_query.message.edit_text(text, reply_markup=kb)
+
 @app.on_callback_query(filters.regex(r"^quiz_back$"))
 async def quiz_back(client, callback_query: CallbackQuery):
-    await callback_query.message.edit_text("🎮 **Viktorina bo'limini tanlang:**", reply_markup=quiz_categories_menu())
+    is_group = callback_query.message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]
+    await callback_query.message.edit_text("🎮 **Viktorina bo'limini tanlang:**", reply_markup=quiz_categories_menu(is_group=is_group))
 
 @app.on_callback_query(filters.regex(r"^quiz_start_in_group$"))
 async def start_in_group_callback(client, callback_query: CallbackQuery):
     bot_link = "https://t.me/Islomiy_agent_Bot?startgroup=true"
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("➕ Botni guruhga qo'shish", url=bot_link)]])
-    
     await callback_query.message.edit_text(
         "🎮 **Guruhda test yechish qoidalari:**\n\n"
         "1. Avval botni o'z guruhingizga qo'shing (quyidagi tugma orqali).\n"
         "2. Botni guruhda **Admin** qilib tayinlang.\n"
         "3. Guruhga o'tib **/quiz** buyrug'ini yozing.\n"
-        "4. Guruhda o'yin 10 soniyadan so'ng avtomatik boshlanadi!",
+        "4. Guruhda o'yin admin ruxsati bilan boshlanadi!",
         reply_markup=kb
     )
 
@@ -695,11 +753,21 @@ async def search_start(client, message: Message):
     USER_STATES[message.from_user.id] = "search"
     await message.reply("🔍 **Qidiruv rejimi yoqildi.**\n\nKetma-ket qidiruv uchun so'zlarni yozib yuboraverasiz. Qidiruvdan chiqish uchun boshqa bo'limni tanlang yoki /start bosing.")
 
+# 4-O'ZGARTIRISH: Menyu tugmalari qidiruvga tushib qolmasligi uchun himoya
 @app.on_message(filters.text & filters.private & ~filters.regex(r"^/"), group=1)
 async def handle_search_input(client, message: Message):
     if message.chat.id in GAMES: return 
     if USER_STATES.get(message.from_user.id) != "search": return
     text = message.text.strip()
+    
+    menu_buttons = [
+        "🎧 Qorilar va qiroatlar", "🤲 Duolar", "📿 Raqamli Tasbeh", "📖 Kunlik oyat",
+        "📜 Kunlik hadis", "⭐ Sevimlilar", "🎮 Viktorina", "🔍 Qidiruv tizimi",
+        "📚 Diniy ma'rifiy", "🕌 Namoz vaqtlari", "🧭 Qibla yo'nalishi", "⬅️ Orqaga",
+        "📍 Lokatsiyani yuborish", "🔔 Eslatmani yoqish", "🔕 Eslatmani o'chirish"
+    ]
+    if text in menu_buttons: return
+
     msg = await message.reply("⏳ Qur'on ichidan qidirilmoqda...")
     try:
         search_query = f"%{text.lower()}%"
@@ -807,7 +875,6 @@ async def main():
     await load_data_from_github() 
     await app.start()
     
-    # Bot (Shaxsiy chat) uchun buyruqlar
     await app.set_bot_commands([
         BotCommand("start", "Botni ishga tushirish"),
         BotCommand("quiz", "Viktorinani boshlash"),
@@ -817,7 +884,6 @@ async def main():
         BotCommand("ramazon", "Ramazonga qolgan kunlar")
     ], scope=BotCommandScopeAllPrivateChats())
 
-    # Guruhlar uchun buyruqlar (Qibla olib tashlandi, Ramazon qo'shildi)
     await app.set_bot_commands([
         BotCommand("start", "Botni ishga tushirish"),
         BotCommand("quiz", "Viktorinani boshlash"),
