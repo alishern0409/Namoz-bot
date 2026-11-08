@@ -17,7 +17,8 @@ from pyrogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
     BotCommand, BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats
 )
-from pyrogram.enums import ChatMemberStatus, ChatType
+# XATOLIK TUGATILISHI UCHUN PARSE MODE QO'SHILDI
+from pyrogram.enums import ChatMemberStatus, ChatType, ParseMode
 from alfalak import PrayerTimes, CalculationMethod, Coordinates
 
 # --- FAYLLARNI YUKLASH ---
@@ -44,7 +45,6 @@ QUIZ_DATA = {}
 KALIMALAR_DATA = []
 TASBEH_DATA = []
 
-# GitHub havolalari (Agar loyiha nomingiz boshqacha bo'lsa, shu yerni o'zgartirasiz)
 QUIZ_JSON_URL = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/quiz_data.json"
 KALIMALAR_JSON_URL = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/kalimalar.json"
 TASBEH_JSON_URL = "https://raw.githubusercontent.com/alishern0409/Namoz-bot/main/tasbeh.json" 
@@ -62,7 +62,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS group_settings (chat_id INTEGER PRI
 cursor.execute('''CREATE TABLE IF NOT EXISTS quiz_stats (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, chat_id INTEGER, username TEXT, score INTEGER DEFAULT 0, date TEXT)''')
 conn.commit()
 
-# Yangi ustunlar (eski bazalarga xavfsiz qo'shiladi)
+# Yangi ustunlar
 try: cursor.execute("ALTER TABLE users ADD COLUMN reminder_offset INTEGER DEFAULT 10"); conn.commit()
 except: pass
 try: cursor.execute("ALTER TABLE users ADD COLUMN first_name TEXT"); conn.commit()
@@ -370,7 +370,6 @@ async def admin_users_list(client, callback_query: CallbackQuery):
     offset = page * 10
     
     try:
-        # Avval bazada nechta odam borligini sanaymiz
         cursor.execute("SELECT COUNT(*) FROM users")
         total = cursor.fetchone()[0]
         
@@ -401,7 +400,7 @@ async def admin_users_list(client, callback_query: CallbackQuery):
             text, 
             reply_markup=InlineKeyboardMarkup(kb_buttons), 
             disable_web_page_preview=True, 
-            parse_mode="html" # <--- XATO TUZATILDI
+            parse_mode=ParseMode.HTML # <--- XATO TUZATILDI (Enum orqali)
         )
         
     except Exception as e:
@@ -567,7 +566,7 @@ async def run_question_timer(client, chat_id, q_idx):
         leaderboard_text += f'{medal} <a href="tg://user?id={uid}">{name}</a> — {p["score"]} ball\n'
 
     try:
-        await client.edit_message_text(chat_id, state["msg_id"], f"⏰ <b>Vaqt tugadi!</b>\n\n❓ {q['q']}\n✅ <b>To'g'ri javob:</b> {correct_text}{leaderboard_text}", reply_markup=None, parse_mode="html") # <--- XATO TUZATILDI
+        await client.edit_message_text(chat_id, state["msg_id"], f"⏰ <b>Vaqt tugadi!</b>\n\n❓ {q['q']}\n✅ <b>To'g'ri javob:</b> {correct_text}{leaderboard_text}", reply_markup=None, parse_mode=ParseMode.HTML) # <--- XATO TUZATILDI
     except Exception:
         try: await client.edit_message_text(chat_id, state["msg_id"], f"⏰ Vaqt tugadi!\n\n❓ {q['q']}\n✅ To'g'ri javob: {correct_text}", reply_markup=None)
         except: pass
@@ -622,7 +621,7 @@ async def end_game(client, chat_id):
         name = p["name"].replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
         text += f'{medal} <a href="tg://user?id={uid}">{name}</a> — <b>{p["score"]} ball</b>\n'
     text += "\n🎮 Yana o'ynash uchun /quiz buyrug'ini bering."
-    try: await client.send_message(chat_id, text, parse_mode="html") # <--- XATO TUZATILDI
+    try: await client.send_message(chat_id, text, parse_mode=ParseMode.HTML) # <--- XATO TUZATILDI
     except Exception:
         simple_text = "🏁 **O'YIN TUGADI!**\n\n🏆 **Yakuniy Natijalar (Top 10):**\n\n"
         for i, (uid, p) in enumerate(sorted_players[:10]):
