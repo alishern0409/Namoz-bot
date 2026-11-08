@@ -1,0 +1,38 @@
+[
+    {
+        "nomi": "1-kalima (Tayyiba)",
+        "arabcha": "لَا إِلٰهَ إِلَّا اللهُ مُحَمَّدٌ رَسُولُ اللهِ",
+        "oqilishi": "La ilaha illallohu Muhammadur rasululloh.",
+        "tarjima": "Allohdan boshqa iloh yo'q, Muhammad (s.a.v) Allohning rasulidir."
+    },
+    {
+        "nomi": "2-kalima (Shahodat)",
+        "arabcha": "أَشْهَدُ أَنْ لَا إِلٰهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ وَأَشْهَدُ أَنَّ مُحَمَّدًا عَبْدُهُ وَرَسُولُهُ",
+        "oqilishi": "Ash-hadu an la ilaha illallohu vahdahu la sharika lahu va ash-hadu anna Muhammadan abduhu va rasuluhu.",
+        "tarjima": "Guvohlik beraman-ki, Allohdan boshqa iloh yo'q, U yolg'izdir, Uning sherigi yo'q va yana guvohlik beraman-ki, Muhammad (s.a.v) Uning bandasi va rasulidir."
+    },
+    {
+        "nomi": "3-kalima (Tamjid)",
+        "arabcha": "سُبْحَانَ اللهِ وَالْحَمْدُ لِلهِ وَلَا إِلٰهَ إِلَّا اللهُ وَاللهُ أَكْبَرُ وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللهِ الْعَلِيِّ الْعَظِيمِ",
+        "oqilishi": "Subhanallohi val hamdu lillahi va la ilaha illallohu vallohu akbar. Va la havla va la quvvata illa billahil 'aliyyil 'aziym.",
+        "tarjima": "Alloh pokdir, barcha hamdlar Allohga xosdir, Allohdan boshqa iloh yo'q, Alloh eng buyukdir. Kuch va quvvat faqatgina yuksak va ulug' Allohdandir."
+    },
+    {
+        "nomi": "4-kalima (Tavhid)",
+        "arabcha": "لَا إِلٰهَ إِلَّا اللهُ وَحْدَهُ لَا شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ يُحْيِي وَيُمِيتُ بِيَدِهِ الْخَيْرُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ",
+        "oqilishi": "La ilaha illallohu vahdahu la sharika lahu, lahul mulku va lahul hamdu, yuhyi va yumitu, biyadihil khayr, va huva 'ala kulli shay'in qadir.",
+        "tarjima": "Allohdan boshqa iloh yo'q, U yolg'izdir, sherigi yo'q. Mulk va hamd Unga xosdir. U tiriltiradi va o'ldiradi. Yaxshilik Uning qo'lidadir. U hamma narsaga qodirdir."
+    },
+    {
+        "nomi": "5-kalima (Istig'for)",
+        "arabcha": "أَسْتَغْفِرُ اللهَ رَبِّي مِنْ كُلِّ ذَنْبٍ وَأَتُوبُ إِلَيْهِ",
+        "oqilishi": "Astag'firulloha robbi min kulli zambin va atubu ilayh.",
+        "tarjima": "Rabbim Allohdan barcha gunohlarim uchun mag'firat so'rayman va Unga tavba qilaman."
+    },
+    {
+        "nomi": "6-kalima (Raddi Kufr)",
+        "arabcha": "اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنْ أَنْ أُشْرِكَ بِكَ شَيْئًا وَأَنَا أَعْلَمُ بِهِ وَأَسْتَغْفِرُكَ لِمَا لَا أَعْلَمُ بِهِ تُبْتُ عَنْهُ وَتَبَرَّأْتُ مِنَ الْكُفْرِ وَالشِّرْكِ وَالْكِذْبِ وَالْغِيبَةِ وَالْبِدْعَةِ وَالنَّمِيمَةِ وَالْفَوَاحِشِ وَالْبُهْتَانِ وَالْمَعَاصِي كُلِّهَا وَأَسْلَمْتُ وَأَقُولُ لَا إِلٰهَ إِلَّا اللهُ مُحَمَّدٌ رَسُولُ اللهِ",
+        "oqilishi": "Allohumma inni a'uzu bika min an ushrika bika shay'an va ana a'lamu bihi va astag'firuka lima la a'lamu bihi tubtu 'anhu va tabarra'tu minal kufri vash shirki val kizbi val ghibati val bid'ati van namimati val favahishi val buhtani val ma'asiyi kulliha va aslamtu va aqulu la ilaha illallohu Muhammadur rasululloh.",
+        "tarjima": "Ey Alloh, men bilgan holda Senga biror narsani shirk keltirishdan Senga panoh tilayman va bilmagan gunohlarim uchun mag'firat so'rayman. Undan tavba qildim va kufr, shirk, yolg'on, g'iybat, bid'at, chakimchilik, buzuqlik, tuhmat va barcha gunohlardan voz kechdim. Islomni qabul qildim va aytaman: Allohdan boshqa iloh yo'q, Muhammad (s.a.v) Allohning rasulidir."
+    }
+]
