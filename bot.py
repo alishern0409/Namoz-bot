@@ -11,6 +11,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from pyrogram import Client, filters, idle
+from pyrogram.handlers import PollHandler
 from pyrogram.types import (
     Message, CallbackQuery,
     ReplyKeyboardMarkup, KeyboardButton,
@@ -620,7 +621,7 @@ async def wait_and_show_results(client, chat_id, poll_id, timer_sec):
         await asyncio.sleep(2)
         await send_next_question(client, chat_id)
 
-@app.on_poll_answer()
+app.add_handler(PollHandler(handle_poll_answer))
 async def handle_poll_answer(client, poll_answer):
     poll_id = poll_answer.poll_id
     
