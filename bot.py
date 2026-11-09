@@ -15,10 +15,9 @@ from pyrogram.types import (
     Message, CallbackQuery,
     ReplyKeyboardMarkup, KeyboardButton,
     InlineKeyboardMarkup, InlineKeyboardButton,
-    BotCommand, BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats,
-    PollType
+    BotCommand, BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats
 )
-from pyrogram.enums import ChatMemberStatus, ChatType, ParseMode
+from pyrogram.enums import ChatMemberStatus, ChatType, ParseMode, PollType
 from pyrogram.errors import UserNotParticipant
 from alfalak import PrayerTimes, CalculationMethod, Coordinates
 
