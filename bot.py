@@ -705,7 +705,7 @@ async def show_weekly_top(client, message: Message):
         if not rows: return await message.reply("Juma kunidan beri botda hali hech kim o'ynamadi.")
         for i, row in enumerate(rows):
             medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
-            prize = " (100 Telegram stars ⭐)" if i == 0 else " (50 Telegram stars ⭐)" if i == 1 else " (30 Telegram stars ⭐)" if i == 2 else ""
+            prize = " (100 Telegram stars ⭐ yoki 15 ming soʻm)" if i == 0 else " (50 Telegram stars ⭐ yoki 10 ming soʻm )" if i == 1 else " (30 Telegram stars ⭐)" if i == 2 else ""
             text += f"{medal} {row[0]} — <b>{row[1]} ball</b>{prize}\n"
     else:
         cursor.execute("SELECT username, SUM(score) as total FROM quiz_stats WHERE date >= ? AND chat_id = ? GROUP BY user_id ORDER BY total DESC LIMIT 20", (start_str, message.chat.id))
